@@ -1,15 +1,27 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 jobs:
-  - name: cronjob
+  - name: cronjob1
     image:
       repository: ubuntu
+      tag: latest
+      pullPolicy: Always
+    schedule: "*/5 * * * *"
+    command: ["/bin/echo"]
+    args:
+      - "$(date) - hello from ubuntu"
+    failedJobsHistoryLimit: 1
+    successfulJobsHistoryLimit: 3
+    concurrencyPolicy: Forbid
+  - name: cronjob2
+    image:
+      repository: busybox
       tag: latest
       pullPolicy: Always
     schedule: "* * * * *"
     command: ["/bin/echo"]
     args:
-      - "i am a cronjob"
+      - "$(date) - hello from busybox"
     failedJobsHistoryLimit: 1
     successfulJobsHistoryLimit: 3
     concurrencyPolicy: Forbid
