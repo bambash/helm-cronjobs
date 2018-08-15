@@ -1,4 +1,4 @@
-name: cron
+name: helm-cronjobs
 description: A chart for cron jobs
 version: 0.1.0
 keywords:
