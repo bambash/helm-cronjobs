@@ -25,10 +25,14 @@ spec:
           - image: "{{ $job.image.repository }}:{{ $job.image.tag }}"
             imagePullPolicy: {{ $job.image.imagePullPolicy }}
             name: {{ $job.name }}
+            {{- with $job.env }}
+            env:
+{{ toYaml . | indent 12 }}
+            {{- end }}
             command: {{ $job.command }}
             args:
 {{ toYaml $job.args | indent 12 }}
           restartPolicy: OnFailure
   schedule: {{ $job.schedule | quote }}
   successfulJobsHistoryLimit: {{ $job.successfulJobsHistoryLimit }}
-  {{- end }}
+{{- end }}

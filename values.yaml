@@ -7,9 +7,10 @@ jobs:
       tag: latest
       pullPolicy: Always
     schedule: "*/5 * * * *"
-    command: ["/bin/echo"]
+    command: ["/bin/bash"]
     args:
-      - "$(date) - hello from ubuntu"
+      - "-c"
+      - "echo $(date) - hello from ubuntu"
     failedJobsHistoryLimit: 1
     successfulJobsHistoryLimit: 3
     concurrencyPolicy: Forbid
@@ -18,10 +19,15 @@ jobs:
       repository: busybox
       tag: latest
       pullPolicy: Always
+    # optional env vars
+    env:
+    - name: ECHO_VAR
+      value: "busybox"
     schedule: "* * * * *"
-    command: ["/bin/echo"]
+    command: ["/bin/sh"]
     args:
-      - "$(date) - hello from busybox"
+      - "-c"
+      - "echo $(date) - hello from $ECHO_VAR"
     failedJobsHistoryLimit: 1
     successfulJobsHistoryLimit: 3
     concurrencyPolicy: Forbid
