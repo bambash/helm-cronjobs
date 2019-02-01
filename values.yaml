@@ -1,7 +1,16 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 jobs:
-  - name: cronjob1
+  - name: hello-world
+    image:
+      repository: hello-world
+      tag: latest
+      pullPolicy: IfNotPresent
+    schedule: "* * * * *"
+    failedJobsHistoryLimit: 1
+    successfulJobsHistoryLimit: 3
+    concurrencyPolicy: Allow
+  - name: hello-ubuntu
     image:
       repository: ubuntu
       tag: latest
@@ -14,7 +23,7 @@ jobs:
     failedJobsHistoryLimit: 1
     successfulJobsHistoryLimit: 3
     concurrencyPolicy: Forbid
-  - name: cronjob2
+  - name: hello-env-var
     image:
       repository: busybox
       tag: latest

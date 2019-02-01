@@ -29,9 +29,13 @@ spec:
             env:
 {{ toYaml . | indent 12 }}
             {{- end }}
+            {{- if $job.command }}
             command: {{ $job.command }}
+            {{- end }}
+            {{- with $job.args }}
             args:
-{{ toYaml $job.args | indent 12 }}
+{{ toYaml . | indent 12 }}
+            {{- end }}
           restartPolicy: OnFailure
   schedule: {{ $job.schedule | quote }}
   successfulJobsHistoryLimit: {{ $job.successfulJobsHistoryLimit }}

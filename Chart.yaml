@@ -1,6 +1,6 @@
 name: helm-cronjobs
 description: A chart for cron jobs
-version: 0.1.0
+version: 0.1.1
 keywords:
   - cron
 home: "https://github.com/bambash"
