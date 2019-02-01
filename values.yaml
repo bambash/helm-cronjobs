@@ -1,6 +1,7 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 jobs:
+  # first cron
   - name: hello-world
     image:
       repository: hello-world
@@ -10,6 +11,8 @@ jobs:
     failedJobsHistoryLimit: 1
     successfulJobsHistoryLimit: 3
     concurrencyPolicy: Allow
+    restartPolicy: OnFailure
+  # second cron
   - name: hello-ubuntu
     image:
       repository: ubuntu
@@ -20,9 +23,18 @@ jobs:
     args:
       - "-c"
       - "echo $(date) - hello from ubuntu"
+    resources:
+      limits:
+        cpu: 50m
+        memory: 256Mi
+      requests:
+        cpu: 50m
+        memory: 256Mi
     failedJobsHistoryLimit: 1
     successfulJobsHistoryLimit: 3
     concurrencyPolicy: Forbid
+    restartPolicy: OnFailure
+  # third cron
   - name: hello-env-var
     image:
       repository: busybox
@@ -37,6 +49,29 @@ jobs:
     args:
       - "-c"
       - "echo $(date) - hello from $ECHO_VAR"
+    resources:
+      limits:
+        cpu: 50m
+        memory: 256Mi
+      requests:
+        cpu: 50m
+        memory: 256Mi
     failedJobsHistoryLimit: 1
     successfulJobsHistoryLimit: 3
     concurrencyPolicy: Forbid
+    restartPolicy: Never
+    nodeSelector:
+      type: infra
+    tolerations:
+    - effect: NoSchedule
+      operator: Exists
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchExpressions:
+            - key: kubernetes.io/e2e-az-name
+              operator: In
+              values:
+              - e2e-az1
+              - e2e-az2

@@ -5,7 +5,7 @@ You can define an array of jobs in values.yaml helm will take care of creating a
 template:
 ```yaml
 jobs:
-  ## required fields
+  ### REQUIRED ###
   - name: <job_name>
     image:
       repository: <image_repo>
@@ -15,7 +15,8 @@ jobs:
     failedJobsHistoryLimit: <failed_history_limit>
     successfulJobsHistoryLimit: <successful_history_limit>
     concurrencyPolicy: <concurrency_policy>
-  ## optional fields
+    restartPolicy: <restart_policy>
+  ### OPTIONAL ###
     env:
     - name: ENV_VAR
       value: ENV_VALUE
@@ -23,6 +24,28 @@ jobs:
     args:
     - "<arg_1>"
     - "<arg_2>"
+    resources:
+      limits:
+        cpu: <cpu_count>
+        memory: <memory_count>
+      requests:
+        cpu: <cpu_count>
+        memory: <memory_count>
+    nodeSelector:
+      key: <value>
+    tolerations:
+    - effect: NoSchedule
+      operator: Exists
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchExpressions:
+            - key: kubernetes.io/e2e-az-name
+              operator: In
+              values:
+              - e2e-az1
+              - e2e-az2
 ```
 
 ## Examples

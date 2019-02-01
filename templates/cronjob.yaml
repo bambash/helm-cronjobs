@@ -35,8 +35,24 @@ spec:
             {{- with $job.args }}
             args:
 {{ toYaml . | indent 12 }}
+          {{- with $job.resources }}
+            resources:
+{{ toYaml . | indent 14 }}
+          {{- end }}
             {{- end }}
-          restartPolicy: OnFailure
+          {{- with $job.nodeSelector }}
+          nodeSelector:
+{{ toYaml . | indent 12 }}
+          {{- end }}
+          {{- with $job.affinity }}
+          affinity:
+{{ toYaml . | indent 12 }}
+          {{- end }}
+          {{- with $job.tolerations }}
+          tolerations:
+{{ toYaml . | indent 12 }}
+          {{- end }}
+          restartPolicy: {{ $job.restartPolicy }}
   schedule: {{ $job.schedule | quote }}
   successfulJobsHistoryLimit: {{ $job.successfulJobsHistoryLimit }}
 {{- end }}
