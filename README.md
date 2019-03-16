@@ -36,6 +36,16 @@ jobs:
     tolerations:
     - effect: NoSchedule
       operator: Exists
+    volumes:
+      - name: config-mount
+        configMap:
+          name: configmap-name
+          items:
+            - key: configuration.yml
+              path: configuration.yml
+    volumeMounts:
+      - name: config-mount
+        mountPath: /etc/config
     affinity:
       nodeAffinity:
         requiredDuringSchedulingIgnoredDuringExecution:
