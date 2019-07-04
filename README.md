@@ -10,7 +10,7 @@ jobs:
     image:
       repository: <image_repo>
       tag: <image_tag>
-      pullPolicy: <pull_policy>
+      imagePullPolicy: <pull_policy>
     schedule: "<cron_schedule>"
     failedJobsHistoryLimit: <failed_history_limit>
     successfulJobsHistoryLimit: <successful_history_limit>
