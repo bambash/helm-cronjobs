@@ -6,7 +6,7 @@ jobs:
     image:
       repository: hello-world
       tag: latest
-      pullPolicy: IfNotPresent
+      imagePullPolicy: IfNotPresent
     schedule: "* * * * *"
     failedJobsHistoryLimit: 1
     successfulJobsHistoryLimit: 3
@@ -17,7 +17,7 @@ jobs:
     image:
       repository: ubuntu
       tag: latest
-      pullPolicy: Always
+      imagePullPolicy: Always
     schedule: "*/5 * * * *"
     command: ["/bin/bash"]
     args:
@@ -39,7 +39,7 @@ jobs:
     image:
       repository: busybox
       tag: latest
-      pullPolicy: Always
+      imagePullPolicy: Always
     # optional env vars
     env:
     - name: ECHO_VAR
