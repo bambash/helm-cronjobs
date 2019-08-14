@@ -35,6 +35,7 @@ spec:
             {{- with $job.args }}
             args:
 {{ toYaml . | indent 12 }}
+            {{- end }}
             {{- with $job.resources }}
             resources:
 {{ toYaml . | indent 14 }}
@@ -43,24 +44,23 @@ spec:
             volumeMounts:
 {{ toYaml . | indent 12 }}
             {{- end }}
-              {{- end }}
-          {{- with $job.nodeSelector }}
-          nodeSelector:
+            {{- with $job.nodeSelector }}
+            nodeSelector:
 {{ toYaml . | indent 12 }}
-          {{- end }}
-          {{- with $job.affinity }}
-          affinity:
+            {{- end }}
+            {{- with $job.affinity }}
+            affinity:
 {{ toYaml . | indent 12 }}
-          {{- end }}
-          {{- with $job.tolerations }}
-          tolerations:
+            {{- end }}
+            {{- with $job.tolerations }}
+            tolerations:
 {{ toYaml . | indent 12 }}
-          {{- end }}
-          restartPolicy: {{ $job.restartPolicy }}
-          {{- with $job.volumes }}
-          volumes:
+            {{- end }}
+            restartPolicy: {{ $job.restartPolicy }}
+            {{- with $job.volumes }}
+            volumes:
 {{ toYaml . | indent 12 }}
-          {{- end }}
+            {{- end }}
   schedule: {{ $job.schedule | quote }}
   successfulJobsHistoryLimit: {{ $job.successfulJobsHistoryLimit }}
 {{- end }}
