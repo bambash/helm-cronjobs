@@ -35,6 +35,7 @@ spec:
             {{- with $job.args }}
             args:
 {{ toYaml . | indent 12 }}
+              {{- end }}
             {{- with $job.resources }}
             resources:
 {{ toYaml . | indent 14 }}
@@ -43,7 +44,6 @@ spec:
             volumeMounts:
 {{ toYaml . | indent 12 }}
             {{- end }}
-              {{- end }}
           {{- with $job.nodeSelector }}
           nodeSelector:
 {{ toYaml . | indent 12 }}
