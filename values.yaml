@@ -36,6 +36,10 @@ jobs:
     restartPolicy: OnFailure
   # third cron
   - name: hello-env-var
+    securityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 2000
     image:
       repository: busybox
       tag: latest
