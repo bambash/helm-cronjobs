@@ -60,7 +60,7 @@ jobs:
 
 ## Examples
 ```
-$ helm install .
+$ helm install test-cron-job .
 NAME:   cold-fly
 LAST DEPLOYED: Fri Feb  1 15:29:21 2019
 NAMESPACE: default
