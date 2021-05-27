@@ -48,11 +48,20 @@ jobs:
     env:
     - name: ECHO_VAR
       value: "busybox"
+    envFrom:
+    - secretRef:
+      name: SECRET_DATA
+    - configMapRef:
+      name: CONFIG_DATA
     schedule: "* * * * *"
     command: ["/bin/sh"]
     args:
       - "-c"
       - "echo $(date) - hello from $ECHO_VAR"
+      - "echo $(date) - loaded secret $SECRET_DATA"
+      - "echo $(date) - loaded config $CONFIG_DATA"
+    serviceAccount:
+      name: "busybox-serviceaccount"
     resources:
       limits:
         cpu: 50m

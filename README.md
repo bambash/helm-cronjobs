@@ -20,6 +20,11 @@ jobs:
     env:
     - name: ENV_VAR
       value: ENV_VALUE
+    envFrom:
+    - secretRef:
+      name: <secret_name>
+    - configMapRef:
+      name: <configmap_name>
     command: ["<command>"]
     args:
     - "<arg_1>"
@@ -31,6 +36,11 @@ jobs:
       requests:
         cpu: <cpu_count>
         memory: <memory_count>
+    serviceAccount:
+      name: <account_name>
+      annotations:  # Optional
+        my-annotation-1: <value>
+        my-annotation-2: <value>
     nodeSelector:
       key: <value>
     tolerations:

@@ -21,6 +21,13 @@ spec:
             app: {{ $release_name }}
             cron: {{ $job.name }}
         spec:
+        {{- if hasKey $job "serviceAccount" }}
+        {{- if hasKey $job.serviceAccount "name" }}
+          serviceAccountName: {{ $job.serviceAccount.name }}
+        {{- else }}
+          serviceAccountName: {{ $job.name }}
+        {{- end }}
+        {{- end }}
         {{- if hasKey $job "securityContext" }}
           {{- if $job.securityContext.runAsUser }}
           securityContext:
@@ -39,6 +46,10 @@ spec:
             name: {{ $job.name }}
             {{- with $job.env }}
             env:
+{{ toYaml . | indent 12 }}
+            {{- end }}
+            {{- with $job.envFrom }}
+            envFrom:
 {{ toYaml . | indent 12 }}
             {{- end }}
             {{- if $job.command }}
