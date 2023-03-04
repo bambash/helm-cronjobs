@@ -4,7 +4,7 @@
 
 {{- range $job := .Values.jobs }}
 ---
-apiVersion: batch/v1beta1
+apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: "{{ $release_name }}-{{ $job.name }}"

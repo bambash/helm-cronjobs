@@ -77,7 +77,7 @@ NAMESPACE: default
 STATUS: DEPLOYED
 
 RESOURCES:
-==> v1beta1/CronJob
+==> v1/CronJob
 NAME                    AGE
 cold-fly-hello-world    1s
 cold-fly-hello-ubuntu   1s
