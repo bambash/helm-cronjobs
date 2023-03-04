@@ -1,15 +1,11 @@
-{{- $chart_name := .Chart.Name }}
-{{- $chart_version := .Chart.Version | replace "+" "_" }}
-{{- $release_name := .Release.Name }}
-
 {{- range $job := .Values.jobs }}
 ---
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: "{{ $release_name }}-{{ $job.name }}"
+  name: "{{ include "cronjobs.releaseName" $ }}-{{ $job.name }}"
   labels:
-    chart: "{{ $chart_name }}-{{ $chart_version }}"
+    {{- include "cronjob.labels" $ | nindent 4 }}
 spec:
   concurrencyPolicy: {{ $job.concurrencyPolicy }}
   failedJobsHistoryLimit: {{ $job.failedJobsHistoryLimit }}
@@ -18,7 +14,7 @@ spec:
       template:
         metadata:
           labels:
-            app: {{ $release_name }}
+            app: {{ include "cronjobs.releaseName" $ }}
             cron: {{ $job.name }}
         spec:
         {{- if hasKey $job "serviceAccount" }}
