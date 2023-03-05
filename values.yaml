@@ -50,16 +50,16 @@ jobs:
       value: "busybox"
     envFrom:
     - secretRef:
-      name: SECRET_DATA
+        name: secret_data
     - configMapRef:
-      name: CONFIG_DATA
+        name: config_data
     schedule: "* * * * *"
     command: ["/bin/sh"]
     args:
       - "-c"
       - "echo $(date) - hello from $ECHO_VAR"
-      - "echo $(date) - loaded secret $SECRET_DATA"
-      - "echo $(date) - loaded config $CONFIG_DATA"
+      - "echo $(date) - loaded secret $secret_data"
+      - "echo $(date) - loaded config $config_data"
     serviceAccount:
       name: "busybox-serviceaccount"
     resources:

@@ -1,7 +1,7 @@
 apiVersion: v1
 name: helm-cronjobs
 description: A chart for cron jobs
-version: 1.0.0
+version: 1.0.1
 keywords:
   - cron
 home: "https://github.com/bambash"
