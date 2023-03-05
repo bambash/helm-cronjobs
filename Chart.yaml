@@ -1,4 +1,4 @@
-apiVersion: v1
+apiVersion: v2
 name: helm-cronjobs
 description: A chart for cron jobs
 version: 1.0.1

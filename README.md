@@ -1,6 +1,29 @@
 # helm-cronjobs
 You can define an array of jobs in values.yaml helm will take care of creating all the CronJobs.
 
+## How to use as a starter chart
+
+1. Find your Helm data directory, `HELM_DATA_HOME`
+
+    ```
+    helm env
+    ```
+
+1.  `cd` to this directory, then
+
+    ```
+    mkdir starters
+    cd starters
+    ```
+
+1.  Clone this repo
+
+1.  In your cronjob project, set up your new chart with
+
+    ```
+    helm create -p helm-cronjobs your_chart_name
+    ```
+
 ## Configuration
 template:
 ```yaml
@@ -77,7 +100,7 @@ NAMESPACE: default
 STATUS: DEPLOYED
 
 RESOURCES:
-==> v1beta1/CronJob
+==> v1/CronJob
 NAME                    AGE
 cold-fly-hello-world    1s
 cold-fly-hello-ubuntu   1s
