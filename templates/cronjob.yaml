@@ -1,9 +1,9 @@
-{{- range $job := .Values.jobs }}
+{{- range $jobname, $job := .Values.jobs }}
 ---
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: "{{ include "cronjobs.releaseName" $ }}-{{ $job.name }}"
+  name: "{{ include "cronjobs.releaseName" $ }}-{{ $jobname }}"
   labels:
     {{- include "cronjobs.labels" $ | nindent 4 }}
 spec:
@@ -15,13 +15,13 @@ spec:
         metadata:
           labels:
             app: {{ include "cronjobs.releaseName" $ }}
-            cron: {{ $job.name }}
+            cron: {{ $jobname }}
         spec:
         {{- if hasKey $job "serviceAccount" }}
         {{- if hasKey $job.serviceAccount "name" }}
           serviceAccountName: {{ $job.serviceAccount.name }}
         {{- else }}
-          serviceAccountName: {{ $job.name }}
+          serviceAccountName: {{ $jobname }}
         {{- end }}
         {{- end }}
         {{- if hasKey $job "securityContext" }}
@@ -39,7 +39,7 @@ spec:
           containers:
           - image: "{{ $job.image.repository }}:{{ $job.image.tag }}"
             imagePullPolicy: {{ $job.image.imagePullPolicy }}
-            name: {{ $job.name }}
+            name: {{ $jobname }}
             {{- with $job.env }}
             env:
 {{ toYaml . | indent 12 }}
