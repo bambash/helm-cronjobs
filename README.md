@@ -56,6 +56,11 @@ jobs:
     concurrencyPolicy: <concurrency_policy>
     restartPolicy: <restart_policy>
   ### OPTIONAL ###
+    imagePullSecrets:
+    - username: <user>
+      password: <password>
+      email: <email>
+      registry: <registry>
     env:
     - name: ENV_VAR
       value: ENV_VALUE

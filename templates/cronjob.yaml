@@ -3,7 +3,7 @@
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: "{{ include "cronjobs.releaseName" $ }}-{{ $jobname }}"
+  name: {{ include "cronjobs.releaseName" $ }}-{{ $jobname }}
   labels:
     {{- include "cronjobs.labels" $ | nindent 4 }}
 spec:
@@ -17,12 +17,14 @@ spec:
             app: {{ include "cronjobs.releaseName" $ }}
             cron: {{ $jobname }}
         spec:
-        {{- if hasKey $job "serviceAccount" }}
-        {{- if hasKey $job.serviceAccount "name" }}
+        {{- if hasKey $job "imagePullSecrets" }}
+          imagePullSecrets:
+          - name: {{ $.Release.Name }}-docker
+        {{- end }}
+        {{- if and (hasKey $job "serviceAccount") (hasKey $job.serviceAccount "name") }}
           serviceAccountName: {{ $job.serviceAccount.name }}
         {{- else }}
-          serviceAccountName: {{ $jobname }}
-        {{- end }}
+          serviceAccountName: {{ $.Release.Name}}-{{ $jobname }}
         {{- end }}
         {{- if hasKey $job "securityContext" }}
           {{- if $job.securityContext.runAsUser }}
@@ -37,7 +39,7 @@ spec:
           {{- end }}
         {{- end }}
           containers:
-          - image: "{{ $job.image.repository }}:{{ $job.image.tag }}"
+          - image: {{ $job.image.repository }}:{{ $job.image.tag }}
             imagePullPolicy: {{ $job.image.imagePullPolicy }}
             name: {{ $jobname }}
             {{- with $job.env }}
