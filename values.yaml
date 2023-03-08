@@ -15,7 +15,6 @@ jobs:
     imagePullSecrets:
     - username: fred
       password: password
-      email: fred@example.com
       registry: docker.io
   # second cron
   hello-ubuntu:

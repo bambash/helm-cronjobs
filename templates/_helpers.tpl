@@ -36,7 +36,11 @@ and will be shared by all the job pods requiring it.
     {{- range $jobname, $job := .Values.jobs -}}
         {{- if hasKey $job "imagePullSecrets" -}}
             {{- range $ips := $job.imagePullSecrets -}}
-                {{- $_ := set $secrets $ips.registry (dict "username" $ips.username "password" $ips.password "email" $ips.email "auth" (printf "%s:%s" $ips.username $ips.password | b64enc)) -}}
+                {{- $userInfo := dict "username" $ips.username "password" $ips.password "auth" (printf "%s:%s" $ips.username $ips.password | b64enc) -}}
+                {{- if hasKey $ips "email" -}}
+                    {{ $_ := set $userInfo  "email" $ips.email -}}
+                {{- end -}}
+                {{- $_ := set $secrets $ips.registry $userInfo -}}
             {{- end -}}
         {{- end -}}
     {{- end -}}
