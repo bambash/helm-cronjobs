@@ -50,8 +50,9 @@ spec:
             envFrom:
 {{ toYaml . | indent 12 }}
             {{- end }}
-            {{- if $job.command }}
-            command: {{ $job.command }}
+            {{- with $job.command }}
+            command:
+{{ toYaml . | indent 12 }}
             {{- end }}
             {{- with $job.args }}
             args:
