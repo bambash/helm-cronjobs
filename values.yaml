@@ -2,7 +2,7 @@
 # Declare variables to be passed into your templates.
 jobs:
   # first cron
-  - name: hello-world
+  hello-world:
     image:
       repository: hello-world
       tag: latest
@@ -12,8 +12,12 @@ jobs:
     successfulJobsHistoryLimit: 3
     concurrencyPolicy: Allow
     restartPolicy: OnFailure
+    imagePullSecrets:
+    - username: fred
+      password: password
+      registry: docker.io
   # second cron
-  - name: hello-ubuntu
+  hello-ubuntu:
     image:
       repository: ubuntu
       tag: latest
@@ -34,8 +38,13 @@ jobs:
     successfulJobsHistoryLimit: 3
     concurrencyPolicy: Forbid
     restartPolicy: OnFailure
+    imagePullSecrets:
+    - username: joe
+      password: password2
+      email: joe@example.com
+      registry: quay.io
   # third cron
-  - name: hello-env-var
+  hello-env-var:
     securityContext:
       runAsUser: 1000
       runAsGroup: 1000

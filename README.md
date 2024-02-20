@@ -25,11 +25,27 @@ You can define an array of jobs in values.yaml helm will take care of creating a
     ```
 
 ## Configuration
-template:
+
+Via `values.yaml`
+
+### Overview
+
+```yaml
+jobs:
+  jobname-1:
+    # job definition
+  jobname-2:
+    # job definition
+  jobname-n:
+    # job definition
+```
+
+### Details
+
 ```yaml
 jobs:
   ### REQUIRED ###
-  - name: <job_name>
+  <job_name>:
     image:
       repository: <image_repo>
       tag: <image_tag>
@@ -40,6 +56,11 @@ jobs:
     concurrencyPolicy: <concurrency_policy>
     restartPolicy: <restart_policy>
   ### OPTIONAL ###
+    imagePullSecrets:
+    - username: <user>
+      password: <password>
+      email: <email>
+      registry: <registry>
     env:
     - name: ENV_VAR
       value: ENV_VALUE
