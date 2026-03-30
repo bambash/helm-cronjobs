@@ -1,28 +1,13 @@
 # helm-cronjobs
 You can define an array of jobs in values.yaml helm will take care of creating all the CronJobs.
 
-## How to use as a starter chart
+## Installation
 
-1. Find your Helm data directory, `HELM_DATA_HOME`
-
-    ```
-    helm env
-    ```
-
-1.  `cd` to this directory, then
-
-    ```
-    mkdir starters
-    cd starters
-    ```
-
-1.  Clone this repo
-
-1.  In your cronjob project, set up your new chart with
-
-    ```
-    helm create -p helm-cronjobs your_chart_name
-    ```
+```bash
+helm repo add bambash https://bambash.github.io/helm-cronjobs
+helm repo update
+helm install my-cronjobs bambash/cronjobs -f values.yaml
+```
 
 ## Configuration
 
@@ -114,7 +99,7 @@ jobs:
 
 ## Examples
 ```
-$ helm install test-cron-job .
+$ helm install my-cronjobs bambash/cronjobs -f values.yaml
 NAME:   cold-fly
 LAST DEPLOYED: Fri Feb  1 15:29:21 2019
 NAMESPACE: default

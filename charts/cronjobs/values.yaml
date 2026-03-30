@@ -1,0 +1,99 @@
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+jobs:
+  # first cron
+  hello-world:
+    image:
+      repository: hello-world
+      tag: latest
+      imagePullPolicy: IfNotPresent
+    schedule: "* * * * *"
+    failedJobsHistoryLimit: 1
+    successfulJobsHistoryLimit: 3
+    concurrencyPolicy: Allow
+    restartPolicy: OnFailure
+    imagePullSecrets:
+    - username: fred
+      password: password
+      registry: docker.io
+  # second cron
+  hello-ubuntu:
+    image:
+      repository: ubuntu
+      tag: latest
+      imagePullPolicy: Always
+    schedule: "*/5 * * * *"
+    command: ["/bin/bash"]
+    args:
+      - "-c"
+      - "echo $(date) - hello from ubuntu"
+    resources:
+      limits:
+        cpu: 50m
+        memory: 256Mi
+      requests:
+        cpu: 50m
+        memory: 256Mi
+    failedJobsHistoryLimit: 1
+    successfulJobsHistoryLimit: 3
+    concurrencyPolicy: Forbid
+    restartPolicy: OnFailure
+    imagePullSecrets:
+    - username: joe
+      password: password2
+      email: joe@example.com
+      registry: quay.io
+  # third cron
+  hello-env-var:
+    securityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 2000
+    image:
+      repository: busybox
+      tag: latest
+      imagePullPolicy: Always
+    # optional env vars
+    env:
+    - name: ECHO_VAR
+      value: "busybox"
+    envFrom:
+    - secretRef:
+        name: secret_data
+    - configMapRef:
+        name: config_data
+    schedule: "* * * * *"
+    command: ["/bin/sh"]
+    args:
+      - "-c"
+      - "echo $(date) - hello from $ECHO_VAR"
+      - "echo $(date) - loaded secret $secret_data"
+      - "echo $(date) - loaded config $config_data"
+    serviceAccount:
+      name: "busybox-serviceaccount"
+    resources:
+      limits:
+        cpu: 50m
+        memory: 256Mi
+      requests:
+        cpu: 50m
+        memory: 256Mi
+    failedJobsHistoryLimit: 1
+    successfulJobsHistoryLimit: 3
+    concurrencyPolicy: Forbid
+    restartPolicy: Never
+    nodeSelector:
+      type: infra
+    tolerations:
+    - effect: NoSchedule
+      operator: Exists
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchExpressions:
+            - key: kubernetes.io/e2e-az-name
+              operator: In
+              values:
+              - e2e-az1
+              - e2e-az2
