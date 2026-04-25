@@ -107,7 +107,7 @@ jobs:
       - name: Create kind cluster
         # SHA pin: helm/kind-action v1.10.0
         # Verify: git ls-remote --tags https://github.com/helm/kind-action
-        uses: helm/kind-action@0025e354d8a8a9b037b88edbc8ae40f1d5de3c67
+        uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde
         with:
           cluster_name: chart-testing
           # kind v0.25.0 is the first release with first-class k8s 1.32 support.
