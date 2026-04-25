@@ -110,10 +110,9 @@ jobs:
         uses: helm/kind-action@0025e74a8c7512023d06dc019c617aa3cf561fde
         with:
           cluster_name: chart-testing
-          # kind v0.25.0 is the first release with first-class k8s 1.32 support.
           # Update node_image SHA when bumping: https://github.com/kubernetes-sigs/kind/releases
-          version: "v0.25.0"
-          node_image: "kindest/node:v1.32.2@sha256:f226945f46b22e4d8d938249ce38e9571fef72b36f93e88e30da54ccfdab2148"
+          version: "v0.31.0"
+          node_image: "kindest/node:v1.32.11@sha256:5fc52d52a7b9574015299724bd68f183702956aa4a2116ae75a63cb574b35af8"
 
       - name: Install chart into kind
         run: |
