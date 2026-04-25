@@ -1,0 +1,21 @@
+{{- if .Values.pdb.enabled }}
+{{- range $jobname, $job := .Values.jobs }}
+---
+# PodDisruptionBudget for job: {{ $jobname }}
+# Protects running job pods from voluntary eviction during cluster maintenance.
+# See values.yaml pdb section for important operational notes.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "cronjobs.releaseName" $ }}-{{ $jobname }}
+  labels:
+    {{- include "cronjobs.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $jobname }}
+spec:
+  minAvailable: {{ $.Values.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "cronjobs.selectorLabels" $ | nindent 6 }}
+      app.kubernetes.io/component: {{ $jobname }}
+{{- end }}
+{{- end }}

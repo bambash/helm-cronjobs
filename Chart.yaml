@@ -1,12 +1,46 @@
 apiVersion: v2
 name: helm-cronjobs
-description: A chart for cron jobs
-version: 2.0.0
+description: >-
+  Deploy and manage multiple Kubernetes CronJobs from a single Helm chart.
+  Supports per-job images, schedules, environment variables, resource limits,
+  hardened security contexts, and optional NetworkPolicy / PDB / VPA.
+type: application
+version: 2.2.0
+appVersion: "2.2.0"
+kubeVersion: ">=1.29.0-0"
 keywords:
   - cron
-home: "https://github.com/bambash"
+  - cronjob
+  - batch
+  - scheduler
+  - jobs
+home: "https://github.com/bambash/helm-cronjobs"
 sources:
-  - "https://github.com/bambash"
+  - "https://github.com/bambash/helm-cronjobs"
 maintainers:
   - name: bambash
     email: bambash256@gmail.com
+    url: "https://github.com/bambash"
+icon: "https://raw.githubusercontent.com/bambash/helm-cronjobs/master/icon.png"
+annotations:
+  artifacthub.io/license: MIT
+  artifacthub.io/changes: |
+    - kind: security
+      description: "Hardened pod/container security contexts (restricted Pod Security Standard)"
+    - kind: added
+      description: "NetworkPolicy template (default deny-all ingress, allow DNS egress)"
+    - kind: added
+      description: "PodDisruptionBudget template per job (policy/v1)"
+    - kind: added
+      description: "VerticalPodAutoscaler template per job (updateMode Off)"
+    - kind: added
+      description: "values.schema.json for early input validation"
+    - kind: changed
+      description: "Standard app.kubernetes.io/* labels on all resources"
+    - kind: changed
+      description: "automountServiceAccountToken disabled by default on ServiceAccounts"
+    - kind: changed
+      description: "kubeVersion constraint added (>=1.29.0-0)"
+  artifacthub.io/images: |
+    - name: kubectl
+      image: alpine/k8s:1.32.3

@@ -1,0 +1,110 @@
+Thank you for installing {{ .Chart.Name }} v{{ .Chart.Version }}.
+
+Release:   {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+
+CronJobs deployed:
+{{- range $jobname, $job := .Values.jobs }}
+  • {{ $.Release.Name }}-{{ $jobname }}  (schedule: {{ $job.schedule }})
+{{- end }}
+
+──────────────────────────────────────────────
+ Pod Security Standard
+──────────────────────────────────────────────
+
+This chart's default security contexts conform to the Kubernetes
+"restricted" Pod Security Standard. To enforce it at the namespace level,
+apply the following labels to namespace {{ .Release.Namespace }}:
+
+  kubectl label namespace {{ .Release.Namespace }} \
+    pod-security.kubernetes.io/enforce=restricted \
+    pod-security.kubernetes.io/warn=restricted \
+    pod-security.kubernetes.io/audit=restricted
+
+If any job images require elevated privileges (runAsRoot, hostPath, etc.)
+you will need to use the "baseline" profile:
+
+  kubectl label namespace {{ .Release.Namespace }} \
+    pod-security.kubernetes.io/enforce=baseline \
+    --overwrite
+
+Per-job security contexts can be overridden via
+values.yaml → jobs.<name>.podSecurityContext / containerSecurityContext.
+
+──────────────────────────────────────────────
+ Running Helm Tests
+──────────────────────────────────────────────
+
+Run the full test suite:
+
+  helm test {{ .Release.Name }} --namespace {{ .Release.Namespace }}
+
+Stream logs while tests run:
+
+  helm test {{ .Release.Name }} --namespace {{ .Release.Namespace }} --logs
+
+Individual test pod logs after a run:
+{{- if .Values.tests.connectivity.enabled }}
+  kubectl logs {{ .Release.Name }}-test-connectivity -n {{ .Release.Namespace }}
+{{- end }}
+{{- if .Values.tests.configuration.enabled }}
+  kubectl logs {{ .Release.Name }}-test-configuration -n {{ .Release.Namespace }}
+{{- end }}
+{{- if .Values.tests.smoke.enabled }}
+  kubectl logs {{ .Release.Name }}-test-smoke -n {{ .Release.Namespace }}
+{{- end }}
+
+What each test validates:
+  connectivity   – all CronJob resources exist via the Kubernetes API
+  configuration  – live spec matches schedule, image, and env vars in values
+  smoke          – one-off Job run from {{ .Values.tests.smoke.jobName }} exits 0
+
+──────────────────────────────────────────────
+ Listing Resources
+──────────────────────────────────────────────
+
+All CronJobs for this release:
+
+  kubectl get cronjobs -n {{ .Release.Namespace }} \
+    -l app.kubernetes.io/instance={{ .Release.Name }}
+
+All ServiceAccounts:
+
+  kubectl get serviceaccounts -n {{ .Release.Namespace }} \
+    -l app.kubernetes.io/instance={{ .Release.Name }}
+
+────────────────────────────────��─────────────
+ Manually Triggering a CronJob
+──────────────────────────────────────────────
+
+  kubectl create job \
+    --from=cronjob/{{ .Release.Name }}-<job-name> \
+    manual-{{ .Release.Name }}-<job-name> \
+    --namespace {{ .Release.Namespace }}
+{{- if .Values.vpa.enabled }}
+
+──────────────────────────────────────────────
+ VerticalPodAutoscaler
+──────────────────────────────────────────────
+
+VPA is enabled (updateMode: {{ .Values.vpa.updateMode }}).
+The VPA controller must be installed in the cluster.
+In "Off" mode recommendations are written to the VPA status only —
+no pods are restarted automatically. Do NOT change updateMode to
+"Auto" or "Recreate" for CronJobs; the VPA will evict running job pods.
+
+View recommendations:
+
+  kubectl describe vpa -n {{ .Release.Namespace }} \
+    -l app.kubernetes.io/instance={{ .Release.Name }}
+{{- end }}
+{{- if .Values.pdb.enabled }}
+
+──────────────────────────────────────────────
+ PodDisruptionBudgets
+──────────────────────────────────────────────
+
+PDB is enabled (minAvailable: {{ .Values.pdb.minAvailable }}).
+Node drains will block while a job pod is running. This is intentional
+for long-running jobs where partial eviction is unacceptable.
+{{- end }}

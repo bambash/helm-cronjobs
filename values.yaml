@@ -1,7 +1,11 @@
-# This is a YAML-formatted file.
-# Declare variables to be passed into your templates.
+# ─────────────────────────────────────────────────────────────────────────────
+# Job definitions
+# Each key under 'jobs' creates one CronJob plus a dedicated ServiceAccount.
+# Keys become part of the Kubernetes resource name:
+#   <release-name>-<key>
+# ─────────────────────────────────────────────────────────────────────────────
 jobs:
-  # first cron
+  # ── Example 1: minimal job ───────────────────────────────────────────────
   hello-world:
     image:
       repository: hello-world
@@ -12,15 +16,18 @@ jobs:
     successfulJobsHistoryLimit: 3
     concurrencyPolicy: Allow
     restartPolicy: OnFailure
+    # NOTE: storing credentials in values.yaml is not recommended for production.
+    # Use an existingDockerRegistrySecret or supply via --set with a sealed-secret.
     imagePullSecrets:
-    - username: fred
-      password: password
-      registry: docker.io
-  # second cron
+      - username: fred
+        password: password
+        registry: docker.io
+
+  # ── Example 2: job with command, resources, and imagePullSecret ───────────
   hello-ubuntu:
     image:
       repository: ubuntu
-      tag: latest
+      tag: "22.04"
       imagePullPolicy: Always
     schedule: "*/5 * * * *"
     command: ["/bin/bash"]
@@ -29,71 +36,279 @@ jobs:
       - "echo $(date) - hello from ubuntu"
     resources:
       limits:
-        cpu: 50m
+        cpu: 100m
         memory: 256Mi
       requests:
         cpu: 50m
-        memory: 256Mi
+        memory: 128Mi
     failedJobsHistoryLimit: 1
     successfulJobsHistoryLimit: 3
     concurrencyPolicy: Forbid
     restartPolicy: OnFailure
     imagePullSecrets:
-    - username: joe
-      password: password2
-      email: joe@example.com
-      registry: quay.io
-  # third cron
+      - username: joe
+        password: password2
+        email: joe@example.com
+        registry: quay.io
+
+  # ── Example 3: job with env vars, custom SA, node targeting, hardened ctx ─
   hello-env-var:
-    securityContext:
+    image:
+      repository: busybox
+      tag: "1.36"
+      imagePullPolicy: Always
+
+    # Per-job pod security context — overrides defaultPodSecurityContext entirely.
+    # Remove this block to inherit the chart-level hardened defaults.
+    podSecurityContext:
+      runAsNonRoot: true
       runAsUser: 1000
       runAsGroup: 1000
       fsGroup: 2000
-    image:
-      repository: busybox
-      tag: latest
-      imagePullPolicy: Always
-    # optional env vars
+      seccompProfile:
+        type: RuntimeDefault
+
+    # Per-job container security context — overrides defaultContainerSecurityContext.
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop: ["ALL"]
+
     env:
-    - name: ECHO_VAR
-      value: "busybox"
+      - name: ECHO_VAR
+        value: "busybox"
     envFrom:
-    - secretRef:
-        name: secret_data
-    - configMapRef:
-        name: config_data
+      - secretRef:
+          name: secret-data
+      - configMapRef:
+          name: config-data
     schedule: "* * * * *"
     command: ["/bin/sh"]
     args:
       - "-c"
       - "echo $(date) - hello from $ECHO_VAR"
-      - "echo $(date) - loaded secret $secret_data"
-      - "echo $(date) - loaded config $config_data"
     serviceAccount:
       name: "busybox-serviceaccount"
+      create: true
+      automountServiceAccountToken: false
     resources:
       limits:
-        cpu: 50m
+        cpu: 100m
         memory: 256Mi
       requests:
         cpu: 50m
-        memory: 256Mi
+        memory: 128Mi
     failedJobsHistoryLimit: 1
     successfulJobsHistoryLimit: 3
     concurrencyPolicy: Forbid
     restartPolicy: Never
+
+    # Optional: liveness probe to detect hung containers.
+    # Not enabled by default — uncomment to use.
+    # livenessProbe:
+    #   exec:
+    #     command: ["/bin/sh", "-c", "test -f /tmp/healthy"]
+    #   initialDelaySeconds: 10
+    #   periodSeconds: 30
+    #   failureThreshold: 3
+    #   timeoutSeconds: 5
+
+    # Optional: startup probe for slow-initialising jobs.
+    # startupProbe:
+    #   exec:
+    #     command: ["/bin/sh", "-c", "test -f /tmp/started"]
+    #   failureThreshold: 30
+    #   periodSeconds: 10
+
     nodeSelector:
       type: infra
     tolerations:
-    - effect: NoSchedule
-      operator: Exists
+      - effect: NoSchedule
+        operator: Exists
     affinity:
       nodeAffinity:
         requiredDuringSchedulingIgnoredDuringExecution:
           nodeSelectorTerms:
-          - matchExpressions:
-            - key: kubernetes.io/e2e-az-name
-              operator: In
-              values:
-              - e2e-az1
-              - e2e-az2
+            - matchExpressions:
+                - key: kubernetes.io/e2e-az-name
+                  operator: In
+                  values:
+                    - e2e-az1
+                    - e2e-az2
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Optional name override
+# Replaces the release name in all resource names. Must be ≤ 63 characters.
+# ─────────────────────────────────────────────────────────────────────────────
+nameOverride: ""
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Security contexts (opt-in)
+#
+# Empty by default — set these to apply a security context to every job.
+# Per-job podSecurityContext / containerSecurityContext always take precedence.
+#
+# Example – Pod Security Standard: restricted:
+#   defaultPodSecurityContext:
+#     runAsNonRoot: true
+#     runAsUser: 65534
+#     runAsGroup: 65534
+#     fsGroup: 65534
+#     seccompProfile:
+#       type: RuntimeDefault
+#   defaultContainerSecurityContext:
+#     allowPrivilegeEscalation: false
+#     readOnlyRootFilesystem: true
+#     capabilities:
+#       drop: ["ALL"]
+# ─────────────────────────────────────────────────────────────────────────────
+defaultPodSecurityContext: {}
+
+defaultContainerSecurityContext: {}
+
+# When readOnlyRootFilesystem is true an emptyDir is automatically mounted at
+# /tmp for each container so standard tooling can write temporary files.
+# Set false to disable chart-wide; disable per job by not setting
+# readOnlyRootFilesystem: true in the job's containerSecurityContext.
+mountTmpDir: true
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Resource defaults
+# Applied to jobs that do not specify their own resources block.
+# Tune to match your typical workload; per-job resources always take precedence.
+# ─────────────────────────────────────────────────────────────────────────────
+defaultResources:
+  limits:
+    cpu: 100m
+    memory: 128Mi
+  requests:
+    cpu: 50m
+    memory: 64Mi
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Workload reliability
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Seconds between SIGTERM and SIGKILL. Allow jobs enough time to finish their
+# current unit of work. Can be overridden per job via
+# job.terminationGracePeriodSeconds.
+terminationGracePeriodSeconds: 30
+
+# Global pre-stop sleep hook — inserts a short pause before SIGTERM so the
+# kubelet has time to propagate endpoint removal (useful for jobs that serve
+# HTTP internally or need a drain window). Per-job lifecycle overrides this.
+preStopSleep:
+  enabled: false
+  seconds: 5
+
+# Topology spread — distributes job pods across failure domains (zones/nodes).
+# The labelSelector is auto-populated per job; only topologyKey and skew need
+# to be configured here.
+topologySpread:
+  enabled: false
+  constraints:
+    - maxSkew: 1
+      topologyKey: topology.kubernetes.io/zone
+      whenUnsatisfiable: DoNotSchedule
+
+# Preferred pod anti-affinity — soft preference to avoid co-locating concurrent
+# job pods on the same node. Only applied when a job has no explicit affinity.
+podAntiAffinity:
+  enabled: false
+  weight: 100   # 1–100; higher = stronger preference
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PodDisruptionBudget  (policy/v1)
+# Prevents voluntary eviction of running job pods during cluster maintenance.
+#
+# WARNING: meaningful only while a job is actively running. With minAvailable: 1
+# a node drain will BLOCK until the job pod terminates naturally. Only enable
+# for long-running jobs where partial eviction is unacceptable.
+# ─────────────────────────────────────────────────────────────────────────────
+pdb:
+  enabled: false
+  minAvailable: 1
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# NetworkPolicy  (networking.k8s.io/v1)
+# When enabled, job pods are subject to a default-deny ingress policy.
+# Egress rules are additive: start with DNS, then add your own targets.
+# ─────────────────────────────────────────────────────────────────────────────
+networkPolicy:
+  enabled: false
+  egress:
+    # Allow unrestricted outbound traffic. Set false and add additionalRules
+    # to lock down egress to specific endpoints.
+    allowAll: true
+    # Extra egress rules appended after the DNS rule.
+    # Example — allow egress to an internal API on port 8080:
+    # additionalRules:
+    #   - to:
+    #     - namespaceSelector:
+    #         matchLabels:
+    #           kubernetes.io/metadata.name: my-api-ns
+    #     ports:
+    #     - port: 8080
+    #       protocol: TCP
+    additionalRules: []
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# VerticalPodAutoscaler  (autoscaling.k8s.io/v1)
+# Requires the VPA controller to be installed in the cluster.
+# In "Off" mode the VPA ONLY makes recommendations — it never restarts pods.
+# IMPORTANT: do not use "Auto" or "Recreate" for CronJobs — the VPA will
+# evict running job pods to apply new resource settings, causing job failures.
+# ─────────────────────────────────────────────────────────────────────────────
+vpa:
+  enabled: false
+  updateMode: "Off"   # Off | Initial  (Auto/Recreate unsafe for batch jobs)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test configuration – used by 'helm test <release>'
+# ─────────────────────────────────────────────────────────────────────────────
+tests:
+  enabled: true
+
+  # Shared image used by all test pods; requires kubectl.
+  image:
+    repository: alpine/k8s
+    tag: "1.32.3"
+    pullPolicy: IfNotPresent
+
+  # Resource constraints for every test pod.
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+  # Verify all CronJob resources exist in the cluster via the Kubernetes API.
+  connectivity:
+    enabled: true
+    timeoutSeconds: 60
+
+  # Inspect the live CronJob spec to assert schedule, image, and env vars match.
+  configuration:
+    enabled: true
+    jobName: hello-env-var
+    expectedEnvVars:
+      - name: ECHO_VAR
+        value: "busybox"
+    timeoutSeconds: 60
+
+  # Trigger a one-off Job from the chosen CronJob and assert it exits 0.
+  smoke:
+    enabled: true
+    jobName: hello-ubuntu
+    timeoutSeconds: 120

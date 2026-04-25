@@ -1,0 +1,73 @@
+{{- if and .Values.tests.enabled .Values.tests.smoke.enabled }}
+{{- $jobName := .Values.tests.smoke.jobName }}
+{{- $job := index .Values.jobs $jobName }}
+{{- if $job }}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "cronjobs.releaseName" . }}-test-smoke
+  labels:
+    {{- include "cronjobs.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+
+spec:
+  serviceAccountName: {{ include "cronjobs.releaseName" . }}-test
+  activeDeadlineSeconds: {{ .Values.tests.smoke.timeoutSeconds }}
+  restartPolicy: Never
+  containers:
+    - name: smoke
+      image: "{{ .Values.tests.image.repository }}:{{ .Values.tests.image.tag }}"
+      imagePullPolicy: {{ .Values.tests.image.pullPolicy }}
+      resources:
+        {{- toYaml .Values.tests.resources | nindent 8 }}
+      command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+          NS="{{ .Release.Namespace }}"
+          CJ="{{ include "cronjobs.releaseName" . }}-{{ $jobName }}"
+          JOB="{{ include "cronjobs.releaseName" . }}-smoke-run"
+          TIMEOUT="{{ .Values.tests.smoke.timeoutSeconds }}"
+
+          echo "=== Smoke Test: triggering one-off Job from CronJob ${CJ} ==="
+
+          # Remove any leftover smoke Job from a previous failed run
+          kubectl delete job "${JOB}" -n "${NS}" --ignore-not-found
+
+          # Trigger job from cronjob
+          kubectl create job "${JOB}" --from="cronjob/${CJ}" -n "${NS}"
+          echo "  Created Job ${JOB}"
+
+          # Wait for the Job to reach Complete condition.
+          # Temporarily disable set -e so we can capture the exit code and still
+          # show logs before deciding whether to fail the test pod.
+          echo "  Waiting up to ${TIMEOUT}s for Job to finish..."
+          set +e
+          kubectl wait job "${JOB}" \
+            --for=condition=complete \
+            --timeout="${TIMEOUT}s" \
+            -n "${NS}"
+          EXIT=$?
+          set -e
+
+          # Show logs regardless of outcome
+          echo "  --- Job logs ---"
+          kubectl logs "job/${JOB}" -n "${NS}" --tail=50 2>/dev/null || true
+          echo "  --- End logs ---"
+
+          if [ "${EXIT}" -ne 0 ]; then
+            echo "FAIL: Job did not complete successfully within ${TIMEOUT}s"
+            kubectl describe job "${JOB}" -n "${NS}" || true
+            # Clean up before failing so reruns are clean
+            kubectl delete job "${JOB}" -n "${NS}" --ignore-not-found || true
+            exit 1
+          fi
+
+          # Clean up on success
+          kubectl delete job "${JOB}" -n "${NS}" --ignore-not-found || true
+          echo "=== Smoke test passed ==="
+{{- end }}
+{{- end }}
