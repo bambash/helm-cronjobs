@@ -1,99 +1,165 @@
-# This is a YAML-formatted file.
-# Declare variables to be passed into your templates.
-jobs:
-  # first cron
-  hello-world:
-    image:
-      repository: hello-world
-      tag: latest
-      imagePullPolicy: IfNotPresent
-    schedule: "* * * * *"
-    failedJobsHistoryLimit: 1
-    successfulJobsHistoryLimit: 3
-    concurrencyPolicy: Allow
-    restartPolicy: OnFailure
-    imagePullSecrets:
-    - username: fred
-      password: password
-      registry: docker.io
-  # second cron
-  hello-ubuntu:
-    image:
-      repository: ubuntu
-      tag: latest
-      imagePullPolicy: Always
-    schedule: "*/5 * * * *"
-    command: ["/bin/bash"]
-    args:
-      - "-c"
-      - "echo $(date) - hello from ubuntu"
-    resources:
-      limits:
-        cpu: 50m
-        memory: 256Mi
-      requests:
-        cpu: 50m
-        memory: 256Mi
-    failedJobsHistoryLimit: 1
-    successfulJobsHistoryLimit: 3
-    concurrencyPolicy: Forbid
-    restartPolicy: OnFailure
-    imagePullSecrets:
-    - username: joe
-      password: password2
-      email: joe@example.com
-      registry: quay.io
-  # third cron
-  hello-env-var:
-    securityContext:
-      runAsUser: 1000
-      runAsGroup: 1000
-      fsGroup: 2000
-    image:
-      repository: busybox
-      tag: latest
-      imagePullPolicy: Always
-    # optional env vars
-    env:
-    - name: ECHO_VAR
-      value: "busybox"
-    envFrom:
-    - secretRef:
-        name: secret_data
-    - configMapRef:
-        name: config_data
-    schedule: "* * * * *"
-    command: ["/bin/sh"]
-    args:
-      - "-c"
-      - "echo $(date) - hello from $ECHO_VAR"
-      - "echo $(date) - loaded secret $secret_data"
-      - "echo $(date) - loaded config $config_data"
-    serviceAccount:
-      name: "busybox-serviceaccount"
-    resources:
-      limits:
-        cpu: 50m
-        memory: 256Mi
-      requests:
-        cpu: 50m
-        memory: 256Mi
-    failedJobsHistoryLimit: 1
-    successfulJobsHistoryLimit: 3
-    concurrencyPolicy: Forbid
-    restartPolicy: Never
-    nodeSelector:
-      type: infra
-    tolerations:
-    - effect: NoSchedule
-      operator: Exists
-    affinity:
-      nodeAffinity:
-        requiredDuringSchedulingIgnoredDuringExecution:
-          nodeSelectorTerms:
-          - matchExpressions:
-            - key: kubernetes.io/e2e-az-name
-              operator: In
-              values:
-              - e2e-az1
-              - e2e-az2
+# helm-cronjobs values
+# Define one or more CronJobs under the `jobs` key.
+# Each key becomes part of the CronJob name: <release>-<jobname>
+
+# Optional: override the release name prefix used in resource names.
+# nameOverride: ""
+
+jobs: {}
+# Uncomment and edit the examples below to get started.
+
+# ------------------------------------------------------------------------------
+# Minimal example
+# ------------------------------------------------------------------------------
+# hello-world:
+#   image:
+#     repository: busybox
+#     tag: "1.36"
+#     imagePullPolicy: IfNotPresent
+#   schedule: "*/5 * * * *"
+#   restartPolicy: OnFailure
+
+# ------------------------------------------------------------------------------
+# Full reference — all supported fields
+# ------------------------------------------------------------------------------
+# my-job:
+#
+#   ## Schedule (required) -------------------------------------------------
+#   # Standard cron expression
+#   schedule: "0 2 * * *"
+#   # IANA timezone for the schedule (requires Kubernetes >= 1.27)
+#   timeZone: "America/New_York"
+#
+#   ## Image (required) ----------------------------------------------------
+#   image:
+#     repository: my-registry.example.com/my-image
+#     tag: "1.0.0"
+#     imagePullPolicy: IfNotPresent   # Always | Never | IfNotPresent
+#
+#   ## CronJob-level controls -----------------------------------------------
+#   suspend: false                    # Pause the schedule without deleting the CronJob
+#   concurrencyPolicy: Forbid         # Allow | Forbid | Replace
+#   failedJobsHistoryLimit: 1
+#   successfulJobsHistoryLimit: 3
+#   startingDeadlineSeconds: 300      # Deadline to start a missed job run
+#
+#   ## Job-level controls ---------------------------------------------------
+#   backoffLimit: 3                   # Retry count before marking Job as failed
+#   activeDeadlineSeconds: 600        # Max seconds a Job may run
+#   ttlSecondsAfterFinished: 86400    # Auto-delete finished Jobs after N seconds
+#
+#   ## Container command & args --------------------------------------------
+#   command: ["/bin/sh"]
+#   args:
+#     - "-c"
+#     - "echo hello from $(date)"
+#
+#   ## Environment variables -----------------------------------------------
+#   env:
+#     - name: MY_VAR
+#       value: "my-value"
+#     - name: MY_SECRET_VAR
+#       valueFrom:
+#         secretKeyRef:
+#           name: my-secret
+#           key: my-key
+#   envFrom:
+#     - secretRef:
+#         name: my-secret
+#     - configMapRef:
+#         name: my-configmap
+#
+#   ## Resource requests & limits ------------------------------------------
+#   resources:
+#     requests:
+#       cpu: 100m
+#       memory: 128Mi
+#     limits:
+#       cpu: 500m
+#       memory: 512Mi
+#
+#   ## Pod security context (pod-level) ------------------------------------
+#   securityContext:
+#     runAsNonRoot: true
+#     runAsUser: 1000
+#     runAsGroup: 1000
+#     fsGroup: 2000
+#     seccompProfile:
+#       type: RuntimeDefault
+#
+#   ## Container security context ------------------------------------------
+#   containerSecurityContext:
+#     allowPrivilegeEscalation: false
+#     readOnlyRootFilesystem: true
+#     capabilities:
+#       drop: ["ALL"]
+#
+#   ## Service account -----------------------------------------------------
+#   # If omitted a ServiceAccount named <release>-<jobname> is auto-created.
+#   serviceAccount:
+#     name: my-service-account
+#     annotations:
+#       eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/my-role
+#
+#   ## Pod annotations & extra labels --------------------------------------
+#   podAnnotations:
+#     prometheus.io/scrape: "false"
+#   podLabels:
+#     team: platform
+#
+#   ## Private registry credentials ----------------------------------------
+#   # One Kubernetes Secret (type: kubernetes.io/dockerconfigjson) is created
+#   # per release and shared across all jobs that specify imagePullSecrets.
+#   imagePullSecrets:
+#     - username: myuser
+#       password: mypassword
+#       registry: my-registry.example.com
+#
+#   ## Init containers ------------------------------------------------------
+#   initContainers:
+#     - name: wait-for-db
+#       image: busybox:1.36
+#       command: ["sh", "-c", "until nc -z db 5432; do sleep 2; done"]
+#
+#   ## Volumes & mounts -----------------------------------------------------
+#   volumes:
+#     - name: config
+#       configMap:
+#         name: my-configmap
+#   volumeMounts:
+#     - name: config
+#       mountPath: /etc/config
+#       readOnly: true
+#
+#   ## Scheduling controls -------------------------------------------------
+#   restartPolicy: OnFailure          # OnFailure | Never
+#   nodeSelector:
+#     kubernetes.io/os: linux
+#   tolerations:
+#     - key: "dedicated"
+#       operator: "Equal"
+#       value: "batch"
+#       effect: "NoSchedule"
+#   affinity:
+#     nodeAffinity:
+#       requiredDuringSchedulingIgnoredDuringExecution:
+#         nodeSelectorTerms:
+#           - matchExpressions:
+#               - key: topology.kubernetes.io/zone
+#                 operator: In
+#                 values:
+#                   - us-east-1a
+#   topologySpreadConstraints:
+#     - maxSkew: 1
+#       topologyKey: topology.kubernetes.io/zone
+#       whenUnsatisfiable: DoNotSchedule
+#       labelSelector:
+#         matchLabels:
+#           cron: my-job
+#
+#   ## Lifecycle hooks -------------------------------------------------------
+#   lifecycle:
+#     preStop:
+#       exec:
+#         command: ["/bin/sh", "-c", "sleep 5"]
+

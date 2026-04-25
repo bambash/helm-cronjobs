@@ -1,0 +1,17 @@
+Thank you for installing {{ .Chart.Name }} v{{ .Chart.Version }}.
+
+The following CronJobs have been deployed:
+{{- range $jobname, $job := .Values.jobs }}
+  • {{ include "cronjobs.releaseName" $ }}-{{ $jobname }}
+      Schedule : {{ $job.schedule }}
+      Image    : {{ $job.image.repository }}:{{ $job.image.tag }}
+{{- end }}
+
+To list your CronJobs:
+  kubectl get cronjobs -l app.kubernetes.io/instance={{ .Release.Name }}
+
+To see recent Job runs:
+  kubectl get jobs -l app.kubernetes.io/instance={{ .Release.Name }}
+
+To view logs for the most recent run of a job (replace <name>):
+  kubectl logs -l cron=<name> --tail=100

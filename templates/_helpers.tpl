@@ -8,10 +8,18 @@ Create chart name and version as used by the chart label.
 {{- end }}
 
 {{/*
+Expand the release name of the chart.
+*/}}
+{{- define "cronjobs.releaseName" -}}
+{{- default .Release.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{/*
 Common labels
 */}}
 {{- define "cronjobs.labels" -}}
 helm.sh/chart: {{ include "cronjobs.chart" . }}
+{{ include "cronjobs.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -19,12 +27,12 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
 {{/*
-Expand the release name of the chart.
+Selector labels
 */}}
-{{- define "cronjobs.releaseName" -}}
-{{- default .Release.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
-
+{{- define "cronjobs.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "cronjobs.releaseName" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
 
 {{/*
 Create payload for any image pull secret.

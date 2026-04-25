@@ -1,12 +1,18 @@
 apiVersion: v2
 name: helm-cronjobs
-description: A chart for cron jobs
-version: 2.0.0
+description: A Helm chart for deploying multiple Kubernetes CronJobs from a single values file
+type: application
+version: 3.0.0
+appVersion: "1.0.0"
 keywords:
   - cron
-home: "https://github.com/bambash"
+  - cronjob
+  - batch
+  - kubernetes
+home: "https://github.com/bambash/helm-cronjobs"
 sources:
-  - "https://github.com/bambash"
+  - "https://github.com/bambash/helm-cronjobs"
 maintainers:
   - name: bambash
     email: bambash256@gmail.com
+icon: "https://raw.githubusercontent.com/cncf/artwork/master/projects/kubernetes/icon/color/kubernetes-icon-color.svg"

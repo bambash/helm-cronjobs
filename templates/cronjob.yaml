@@ -7,82 +7,115 @@ metadata:
   labels:
     {{- include "cronjobs.labels" $ | nindent 4 }}
 spec:
-  concurrencyPolicy: {{ $job.concurrencyPolicy }}
-  failedJobsHistoryLimit: {{ $job.failedJobsHistoryLimit }}
+  schedule: {{ $job.schedule | quote }}
+  {{- with $job.timeZone }}
+  timeZone: {{ . | quote }}
+  {{- end }}
+  {{- if hasKey $job "suspend" }}
+  suspend: {{ $job.suspend }}
+  {{- end }}
+  concurrencyPolicy: {{ $job.concurrencyPolicy | default "Allow" }}
+  failedJobsHistoryLimit: {{ $job.failedJobsHistoryLimit | default 1 }}
+  successfulJobsHistoryLimit: {{ $job.successfulJobsHistoryLimit | default 3 }}
+  {{- with $job.startingDeadlineSeconds }}
+  startingDeadlineSeconds: {{ . }}
+  {{- end }}
   jobTemplate:
     spec:
+      {{- with $job.backoffLimit }}
+      backoffLimit: {{ . }}
+      {{- end }}
+      {{- with $job.activeDeadlineSeconds }}
+      activeDeadlineSeconds: {{ . }}
+      {{- end }}
+      {{- with $job.ttlSecondsAfterFinished }}
+      ttlSecondsAfterFinished: {{ . }}
+      {{- end }}
       template:
         metadata:
           labels:
             app: {{ include "cronjobs.releaseName" $ }}
             cron: {{ $jobname }}
-        spec:
-        {{- if hasKey $job "imagePullSecrets" }}
-          imagePullSecrets:
-          - name: {{ $.Release.Name }}-docker
-        {{- end }}
-        {{- if and (hasKey $job "serviceAccount") (hasKey $job.serviceAccount "name") }}
-          serviceAccountName: {{ $job.serviceAccount.name }}
-        {{- else }}
-          serviceAccountName: {{ $.Release.Name}}-{{ $jobname }}
-        {{- end }}
-        {{- if hasKey $job "securityContext" }}
-          {{- if $job.securityContext.runAsUser }}
-          securityContext:
-            runAsUser: {{ $job.securityContext.runAsUser }}
-            {{- if $job.securityContext.runAsGroup }}
-            runAsGroup: {{ $job.securityContext.runAsGroup }}
+            {{- with $job.podLabels }}
+            {{- toYaml . | nindent 12 }}
             {{- end }}
-            {{- if $job.securityContext.fsGroup }}
-            fsGroup: {{ $job.securityContext.fsGroup }}
-            {{- end }}
+          {{- with $job.podAnnotations }}
+          annotations:
+            {{- toYaml . | nindent 12 }}
           {{- end }}
-        {{- end }}
+        spec:
+          {{- if hasKey $job "imagePullSecrets" }}
+          imagePullSecrets:
+            - name: {{ $.Release.Name }}-docker
+          {{- end }}
+          {{- if and (hasKey $job "serviceAccount") (hasKey $job.serviceAccount "name") }}
+          serviceAccountName: {{ $job.serviceAccount.name }}
+          {{- else }}
+          serviceAccountName: {{ $.Release.Name }}-{{ $jobname }}
+          {{- end }}
+          {{- with $job.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $job.initContainers }}
+          initContainers:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           containers:
-          - image: {{ $job.image.repository }}:{{ $job.image.tag }}
-            imagePullPolicy: {{ $job.image.imagePullPolicy }}
-            name: {{ $jobname }}
-            {{- with $job.env }}
-            env:
-{{ toYaml . | indent 12 }}
-            {{- end }}
-            {{- with $job.envFrom }}
-            envFrom:
-{{ toYaml . | indent 12 }}
-            {{- end }}
-            {{- with $job.command }}
-            command:
-{{ toYaml . | indent 12 }}
-            {{- end }}
-            {{- with $job.args }}
-            args:
-{{ toYaml . | indent 12 }}
+            - name: {{ $jobname }}
+              image: {{ $job.image.repository }}:{{ $job.image.tag }}
+              imagePullPolicy: {{ $job.image.imagePullPolicy | default "IfNotPresent" }}
+              {{- with $job.command }}
+              command:
+                {{- toYaml . | nindent 16 }}
               {{- end }}
-            {{- with $job.resources }}
-            resources:
-{{ toYaml . | indent 14 }}
-            {{- end }}
-            {{- with $job.volumeMounts }}
-            volumeMounts:
-{{ toYaml . | indent 12 }}
-            {{- end }}
+              {{- with $job.args }}
+              args:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              {{- with $job.env }}
+              env:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              {{- with $job.envFrom }}
+              envFrom:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              {{- with $job.resources }}
+              resources:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              {{- with $job.volumeMounts }}
+              volumeMounts:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              {{- with $job.containerSecurityContext }}
+              securityContext:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              {{- with $job.lifecycle }}
+              lifecycle:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+          restartPolicy: {{ $job.restartPolicy | default "OnFailure" }}
           {{- with $job.nodeSelector }}
           nodeSelector:
-{{ toYaml . | indent 12 }}
+            {{- toYaml . | nindent 12 }}
           {{- end }}
           {{- with $job.affinity }}
           affinity:
-{{ toYaml . | indent 12 }}
+            {{- toYaml . | nindent 12 }}
           {{- end }}
           {{- with $job.tolerations }}
           tolerations:
-{{ toYaml . | indent 12 }}
+            {{- toYaml . | nindent 12 }}
           {{- end }}
-          restartPolicy: {{ $job.restartPolicy }}
+          {{- with $job.topologySpreadConstraints }}
+          topologySpreadConstraints:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- with $job.volumes }}
           volumes:
-{{ toYaml . | indent 12 }}
+            {{- toYaml . | nindent 12 }}
           {{- end }}
-  schedule: {{ $job.schedule | quote }}
-  successfulJobsHistoryLimit: {{ $job.successfulJobsHistoryLimit }}
 {{- end }}

@@ -1,1 +1,4 @@
 .git/
+.github/
+.DS_Store
+*.tgz

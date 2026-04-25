@@ -1,0 +1,83 @@
+name: Release Charts
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "Chart.yaml"
+      - "values.yaml"
+      - "templates/**"
+      - ".helmignore"
+
+permissions:
+  contents: write
+
+jobs:
+  lint:
+    name: Lint & Template Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      - name: Helm lint
+        run: helm lint .
+
+      - name: Helm template (empty jobs)
+        run: helm template test . --set 'jobs={}' > /dev/null
+
+  release:
+    name: Package & Publish
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      - name: Package chart
+        run: |
+          mkdir -p /tmp/helm-packages
+          helm package . --destination /tmp/helm-packages
+
+      - name: Publish to GitHub Pages
+        run: |
+          CHART_VERSION=$(grep '^version:' Chart.yaml | awk '{print $2}')
+          PAGES_URL="https://${{ github.repository_owner }}.github.io/helm-cronjobs"
+
+          # Checkout or create the gh-pages branch
+          if git ls-remote --exit-code origin gh-pages; then
+            git fetch origin gh-pages:gh-pages
+            git checkout gh-pages
+          else
+            git checkout --orphan gh-pages
+            git rm -rf .
+          fi
+
+          # Bring in any new packages
+          cp /tmp/helm-packages/*.tgz .
+
+          # Regenerate index, merging with existing if present
+          if [ -f index.yaml ]; then
+            helm repo index . --url "${PAGES_URL}" --merge index.yaml
+          else
+            helm repo index . --url "${PAGES_URL}"
+          fi
+
+          git add ./*.tgz index.yaml
+          git diff --staged --quiet || \
+            git commit -m "Release helm-cronjobs-${CHART_VERSION} [skip ci]"
+          git push origin gh-pages
