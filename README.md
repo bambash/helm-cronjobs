@@ -27,15 +27,6 @@ kubectl label namespace <ns> \
 
 ---
 
-## How to use as a starter chart
-
-1. Find your Helm data directory: `helm env` → look for `HELM_DATA_HOME`.
-2. `cd $HELM_DATA_HOME && mkdir -p starters && cd starters`
-3. Clone this repo.
-4. Scaffold a new chart: `helm create -p helm-cronjobs your_chart_name`
-
----
-
 ## Configuration
 
 ### Job definition overview
@@ -206,14 +197,6 @@ git push origin v2.2.0
 ```
 
 Pre-release tags are supported: `v2.2.0-rc.1`, `v2.2.0-beta.2`, etc.
-
-### Installing from the Helm repository
-
-```bash
-helm repo add helm-cronjobs https://<owner>.github.io/helm-cronjobs/
-helm repo update
-helm install my-release helm-cronjobs/helm-cronjobs
-```
 
 ### Required secrets
 
