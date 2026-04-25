@@ -11,7 +11,7 @@ metadata:
     {{- include "cronjobs.labels" . | nindent 4 }}
   annotations:
     "helm.sh/hook": test
-    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    "helm.sh/hook-delete-policy": before-hook-creation
 spec:
   serviceAccountName: {{ include "cronjobs.releaseName" . }}-test
   activeDeadlineSeconds: {{ .Values.tests.configuration.timeoutSeconds }}
