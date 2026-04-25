@@ -146,30 +146,28 @@ nameOverride: ""
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Security – Pod Security Standard: restricted
+# Security contexts (opt-in)
 #
-# These defaults apply to every job unless overridden at the job level with
-# podSecurityContext / containerSecurityContext keys.
+# Empty by default — set these to apply a security context to every job.
+# Per-job podSecurityContext / containerSecurityContext always take precedence.
 #
-# Namespace label required for enforcement (see NOTES.txt):
-#   kubectl label namespace <ns> \
-#     pod-security.kubernetes.io/enforce=restricted \
-#     pod-security.kubernetes.io/warn=restricted \
-#     pod-security.kubernetes.io/audit=restricted
+# Example – Pod Security Standard: restricted:
+#   defaultPodSecurityContext:
+#     runAsNonRoot: true
+#     runAsUser: 65534
+#     runAsGroup: 65534
+#     fsGroup: 65534
+#     seccompProfile:
+#       type: RuntimeDefault
+#   defaultContainerSecurityContext:
+#     allowPrivilegeEscalation: false
+#     readOnlyRootFilesystem: true
+#     capabilities:
+#       drop: ["ALL"]
 # ─────────────────────────────────────────────────────────────────────────────
-defaultPodSecurityContext:
-  runAsNonRoot: true
-  runAsUser: 65534      # nobody; override per job for images requiring a specific UID
-  runAsGroup: 65534
-  fsGroup: 65534
-  seccompProfile:
-    type: RuntimeDefault
+defaultPodSecurityContext: {}
 
-defaultContainerSecurityContext:
-  allowPrivilegeEscalation: false
-  readOnlyRootFilesystem: true
-  capabilities:
-    drop: ["ALL"]
+defaultContainerSecurityContext: {}
 
 # When readOnlyRootFilesystem is true an emptyDir is automatically mounted at
 # /tmp for each container so standard tooling can write temporary files.

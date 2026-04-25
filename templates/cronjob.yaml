@@ -50,8 +50,10 @@ spec:
             - name: {{ $.Release.Name }}-docker
           {{- end }}
           terminationGracePeriodSeconds: {{ $termGrace }}
+          {{- with $podSecCtx }}
           securityContext:
-            {{- toYaml $podSecCtx | nindent 12 }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- /* ── Topology spread ──────────────────────────────────────── */}}
           {{- if $.Values.topologySpread.enabled }}
           topologySpreadConstraints:
@@ -105,8 +107,10 @@ spec:
             - name: {{ $jobname }}
               image: "{{ $job.image.repository }}:{{ $job.image.tag }}"
               imagePullPolicy: {{ $job.image.imagePullPolicy }}
+              {{- with $containerSecCtx }}
               securityContext:
-                {{- toYaml $containerSecCtx | nindent 16 }}
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
               resources:
                 {{- toYaml $resources | nindent 16 }}
               {{- with $job.command }}

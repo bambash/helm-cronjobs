@@ -24,8 +24,6 @@ jobs:
     args:
       - "-c"
       - "echo $(date) - hello from ubuntu ci"
-    # Use the chart defaults (runAsNonRoot, readOnlyRootFilesystem, etc.).
-    # ubuntu:22.04 bash echo works fine as nobody (65534); /tmp is auto-mounted.
     resources:
       limits:
         cpu: 100m
