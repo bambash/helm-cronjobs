@@ -85,9 +85,9 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Helm
-        # SHA pin: azure/setup-helm v4.2.1
+        # SHA pin: azure/setup-helm v4.2.0
         # Verify SHA: git ls-remote --tags https://github.com/Azure/setup-helm
-        uses: azure/setup-helm@5119fcb9bc5f777f04d5b57c9bfef8bd638b5834
+        uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814
         with:
           version: "3.14.4"
 

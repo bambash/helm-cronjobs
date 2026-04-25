@@ -28,16 +28,16 @@ jobs:
           fetch-depth: 0
 
       - name: Cache Helm binary
-        # SHA pin: actions/cache v4.2.0
-        uses: actions/cache@d4323d4df104b026a6aa633fdb11a772f3b5ee34
+        # SHA pin: actions/cache v4.2.2
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf
         with:
           path: ~/.local/share/helm
           key: helm-${{ runner.os }}-3.14.4
 
       - name: Set up Helm
-        # SHA pin: azure/setup-helm v4.2.1
+        # SHA pin: azure/setup-helm v4.2.0
         # Verify: git ls-remote --tags https://github.com/Azure/setup-helm
-        uses: azure/setup-helm@5119fcb9bc5f777f04d5b57c9bfef8bd638b5834
+        uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814
         with:
           version: "3.14.4"
 
@@ -91,16 +91,16 @@ jobs:
           fetch-depth: 0
 
       - name: Cache Helm binary
-        # SHA pin: actions/cache v4.2.0
-        uses: actions/cache@d4323d4df104b026a6aa633fdb11a772f3b5ee34
+        # SHA pin: actions/cache v4.2.2
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf
         with:
           path: ~/.local/share/helm
           key: helm-${{ runner.os }}-3.14.4
 
       - name: Set up Helm
-        # SHA pin: azure/setup-helm v4.2.1
+        # SHA pin: azure/setup-helm v4.2.0
         # Verify: git ls-remote --tags https://github.com/Azure/setup-helm
-        uses: azure/setup-helm@5119fcb9bc5f777f04d5b57c9bfef8bd638b5834
+        uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814
         with:
           version: "3.14.4"
 
