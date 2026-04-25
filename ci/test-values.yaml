@@ -3,14 +3,16 @@
 # Overrides the default jobs to:
 #   • Remove jobs that carry imagePullSecrets with example credentials so Docker
 #     Hub auth errors cannot block the test run.
-#   • Pin image tags to avoid unexpected breakage from `:latest` updates.
+#   • Pin image tags to avoid unexpected breakage from ':latest' updates.
 #   • Drop the nodeSelector / tolerations / affinity that won't match a kind node.
+#   • Set per-job security contexts that work with the images used (ubuntu,
+#     busybox) — both run simple echo commands so nobody (65534) is fine.
 #
 # Helm merges this file on top of values.yaml.  Setting a job key to null (~)
 # removes it from the merged map (Helm 3 behaviour).
 
 jobs:
-  hello-world: ~   # remove – uses imagePullSecrets with dummy docker.io creds
+  hello-world: ~   # removed — uses imagePullSecrets with dummy docker.io creds
 
   hello-ubuntu:
     image:
@@ -22,18 +24,19 @@ jobs:
     args:
       - "-c"
       - "echo $(date) - hello from ubuntu ci"
+    # Use the chart defaults (runAsNonRoot, readOnlyRootFilesystem, etc.).
+    # ubuntu:22.04 bash echo works fine as nobody (65534); /tmp is auto-mounted.
     resources:
       limits:
-        cpu: 50m
+        cpu: 100m
         memory: 128Mi
       requests:
         cpu: 50m
-        memory: 128Mi
+        memory: 64Mi
     failedJobsHistoryLimit: 1
     successfulJobsHistoryLimit: 3
     concurrencyPolicy: Forbid
     restartPolicy: OnFailure
-    # No imagePullSecrets – ubuntu is public on Docker Hub
 
   hello-env-var:
     image:
@@ -48,19 +51,32 @@ jobs:
     env:
       - name: ECHO_VAR
         value: "busybox"
-    # envFrom removed – the referenced Secret/ConfigMap don't exist in kind
+    # envFrom removed — the referenced Secret/ConfigMap don't exist in kind
+    podSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 2000
+      seccompProfile:
+        type: RuntimeDefault
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop: ["ALL"]
     resources:
       limits:
-        cpu: 50m
+        cpu: 100m
         memory: 64Mi
       requests:
         cpu: 50m
-        memory: 64Mi
+        memory: 32Mi
     failedJobsHistoryLimit: 1
     successfulJobsHistoryLimit: 3
     concurrencyPolicy: Forbid
     restartPolicy: OnFailure
-    # No nodeSelector/tolerations/affinity – kind nodes have no custom labels
+    # No serviceAccount.name — use auto-generated SA
+    # No nodeSelector / tolerations / affinity — kind nodes have no custom labels
 
 tests:
   configuration:

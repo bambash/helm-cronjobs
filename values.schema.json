@@ -1,0 +1,484 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "helm-cronjobs values",
+  "description": "Schema for helm-cronjobs chart values.yaml. Validated by helm install --validate.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["jobs"],
+  "properties": {
+
+    "nameOverride": {
+      "type": "string",
+      "maxLength": 63,
+      "description": "Overrides the release name in all resource names."
+    },
+
+    "jobs": {
+      "type": "object",
+      "description": "Map of CronJob definitions. Each key creates one CronJob + ServiceAccount.",
+      "minProperties": 1,
+      "additionalProperties": {
+        "oneOf": [
+          { "$ref": "#/definitions/job" },
+          { "type": "null" }
+        ]
+      }
+    },
+
+    "defaultPodSecurityContext": {
+      "$ref": "#/definitions/podSecurityContext",
+      "description": "Chart-level pod security context applied to all jobs unless overridden."
+    },
+
+    "defaultContainerSecurityContext": {
+      "$ref": "#/definitions/containerSecurityContext",
+      "description": "Chart-level container security context applied to all jobs unless overridden."
+    },
+
+    "defaultResources": {
+      "$ref": "#/definitions/resources",
+      "description": "Default resource requests/limits for jobs that do not specify their own."
+    },
+
+    "mountTmpDir": {
+      "type": "boolean",
+      "description": "Auto-mount an emptyDir at /tmp when readOnlyRootFilesystem is true.",
+      "default": true
+    },
+
+    "terminationGracePeriodSeconds": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Seconds between SIGTERM and SIGKILL for all jobs (per-job override available).",
+      "default": 30
+    },
+
+    "preStopSleep": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Global pre-stop sleep lifecycle hook injected when no per-job lifecycle is set.",
+      "properties": {
+        "enabled": { "type": "boolean", "default": false },
+        "seconds": { "type": "integer", "minimum": 0, "maximum": 300, "default": 5 }
+      }
+    },
+
+    "topologySpread": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Distribute job pods across topology domains (zones/nodes).",
+      "properties": {
+        "enabled": { "type": "boolean", "default": false },
+        "constraints": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["maxSkew", "topologyKey", "whenUnsatisfiable"],
+            "properties": {
+              "maxSkew": { "type": "integer", "minimum": 1 },
+              "topologyKey": { "type": "string" },
+              "whenUnsatisfiable": {
+                "type": "string",
+                "enum": ["DoNotSchedule", "ScheduleAnyway"]
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "podAntiAffinity": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Preferred anti-affinity to avoid co-locating job pods on the same node.",
+      "properties": {
+        "enabled": { "type": "boolean", "default": false },
+        "weight": { "type": "integer", "minimum": 1, "maximum": 100, "default": 100 }
+      }
+    },
+
+    "pdb": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "PodDisruptionBudget settings (policy/v1). One PDB created per job.",
+      "properties": {
+        "enabled": { "type": "boolean", "default": false },
+        "minAvailable": {
+          "oneOf": [
+            { "type": "integer", "minimum": 0 },
+            { "type": "string", "pattern": "^[0-9]+%$" }
+          ],
+          "default": 1
+        }
+      }
+    },
+
+    "networkPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "NetworkPolicy settings. Default: deny-all ingress; DNS egress allowed.",
+      "properties": {
+        "enabled": { "type": "boolean", "default": false },
+        "egress": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "allowAll": { "type": "boolean", "default": true },
+            "additionalRules": {
+              "type": "array",
+              "items": { "type": "object" }
+            }
+          }
+        }
+      }
+    },
+
+    "vpa": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "VerticalPodAutoscaler settings. Requires VPA controller in the cluster.",
+      "properties": {
+        "enabled": { "type": "boolean", "default": false },
+        "updateMode": {
+          "type": "string",
+          "enum": ["Off", "Initial", "Recreate", "Auto"],
+          "default": "Off",
+          "description": "Off and Initial are safe for CronJobs. Recreate/Auto evict running pods."
+        }
+      }
+    },
+
+    "tests": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Configuration for helm test pods.",
+      "properties": {
+        "enabled": { "type": "boolean", "default": true },
+        "image": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["repository", "tag"],
+          "properties": {
+            "repository": { "type": "string" },
+            "tag": { "type": "string" },
+            "pullPolicy": {
+              "type": "string",
+              "enum": ["Always", "IfNotPresent", "Never"],
+              "default": "IfNotPresent"
+            }
+          }
+        },
+        "resources": { "$ref": "#/definitions/resources" },
+        "connectivity": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "timeoutSeconds": { "type": "integer", "minimum": 10, "maximum": 600, "default": 60 }
+          }
+        },
+        "configuration": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "jobName": { "type": "string" },
+            "expectedEnvVars": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["name", "value"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "value": { "type": "string" }
+                }
+              }
+            },
+            "timeoutSeconds": { "type": "integer", "minimum": 10, "maximum": 600, "default": 60 }
+          }
+        },
+        "smoke": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "jobName": { "type": "string" },
+            "timeoutSeconds": { "type": "integer", "minimum": 10, "maximum": 600, "default": 120 }
+          }
+        }
+      }
+    }
+
+  },
+
+  "definitions": {
+
+    "job": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "image",
+        "schedule",
+        "failedJobsHistoryLimit",
+        "successfulJobsHistoryLimit",
+        "concurrencyPolicy",
+        "restartPolicy"
+      ],
+      "properties": {
+
+        "image": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["repository", "tag"],
+          "properties": {
+            "repository": { "type": "string" },
+            "tag": { "type": "string" },
+            "imagePullPolicy": {
+              "type": "string",
+              "enum": ["Always", "IfNotPresent", "Never"],
+              "default": "IfNotPresent"
+            }
+          }
+        },
+
+        "schedule": {
+          "type": "string",
+          "description": "Cron expression (e.g. '*/5 * * * *'). Standard 5-field cron or @hourly/@daily/@weekly/@monthly."
+        },
+
+        "failedJobsHistoryLimit": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of failed Job records to retain."
+        },
+
+        "successfulJobsHistoryLimit": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of successful Job records to retain."
+        },
+
+        "concurrencyPolicy": {
+          "type": "string",
+          "enum": ["Allow", "Forbid", "Replace"],
+          "description": "How concurrent executions of the job are handled."
+        },
+
+        "restartPolicy": {
+          "type": "string",
+          "enum": ["OnFailure", "Never"],
+          "description": "Pod restart policy. 'Always' is not valid for Job pods."
+        },
+
+        "command": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+
+        "args": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+
+        "env": {
+          "type": "array",
+          "items": { "type": "object" }
+        },
+
+        "envFrom": {
+          "type": "array",
+          "items": { "type": "object" }
+        },
+
+        "resources": { "$ref": "#/definitions/resources" },
+
+        "podSecurityContext": {
+          "$ref": "#/definitions/podSecurityContext",
+          "description": "Per-job pod security context. Overrides defaultPodSecurityContext entirely."
+        },
+
+        "containerSecurityContext": {
+          "$ref": "#/definitions/containerSecurityContext",
+          "description": "Per-job container security context. Overrides defaultContainerSecurityContext entirely."
+        },
+
+        "securityContext": {
+          "$ref": "#/definitions/podSecurityContext",
+          "description": "Deprecated: use podSecurityContext. Kept for backward compatibility."
+        },
+
+        "terminationGracePeriodSeconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+
+        "podAnnotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+
+        "serviceAccount": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "name": { "type": "string" },
+            "create": { "type": "boolean", "default": true },
+            "automountServiceAccountToken": { "type": "boolean", "default": false },
+            "annotations": {
+              "type": "object",
+              "additionalProperties": { "type": "string" }
+            }
+          }
+        },
+
+        "imagePullSecrets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["username", "password", "registry"],
+            "additionalProperties": false,
+            "properties": {
+              "username": { "type": "string" },
+              "password": { "type": "string" },
+              "email": { "type": "string", "format": "email" },
+              "registry": { "type": "string" }
+            }
+          }
+        },
+
+        "nodeSelector": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+
+        "tolerations": {
+          "type": "array",
+          "items": { "type": "object" }
+        },
+
+        "affinity": {
+          "type": "object"
+        },
+
+        "volumes": {
+          "type": "array",
+          "items": { "type": "object" }
+        },
+
+        "volumeMounts": {
+          "type": "array",
+          "items": { "type": "object" }
+        },
+
+        "lifecycle": {
+          "type": "object"
+        },
+
+        "livenessProbe": {
+          "type": "object",
+          "description": "Liveness probe to detect hung containers. See Kubernetes probe docs."
+        },
+
+        "startupProbe": {
+          "type": "object",
+          "description": "Startup probe for slow-initialising jobs."
+        }
+
+      }
+    },
+
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "cpu": { "type": "string" },
+            "memory": { "type": "string" }
+          }
+        },
+        "requests": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "cpu": { "type": "string" },
+            "memory": { "type": "string" }
+          }
+        }
+      }
+    },
+
+    "podSecurityContext": {
+      "type": "object",
+      "properties": {
+        "runAsNonRoot": { "type": "boolean" },
+        "runAsUser": { "type": "integer", "minimum": 0 },
+        "runAsGroup": { "type": "integer", "minimum": 0 },
+        "fsGroup": { "type": "integer", "minimum": 0 },
+        "fsGroupChangePolicy": {
+          "type": "string",
+          "enum": ["Always", "OnRootMismatch"]
+        },
+        "supplementalGroups": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 0 }
+        },
+        "seccompProfile": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["RuntimeDefault", "Localhost", "Unconfined"]
+            },
+            "localhostProfile": { "type": "string" }
+          }
+        },
+        "sysctls": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "value"],
+            "properties": {
+              "name": { "type": "string" },
+              "value": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+
+    "containerSecurityContext": {
+      "type": "object",
+      "properties": {
+        "allowPrivilegeEscalation": { "type": "boolean" },
+        "readOnlyRootFilesystem": { "type": "boolean" },
+        "runAsNonRoot": { "type": "boolean" },
+        "runAsUser": { "type": "integer", "minimum": 0 },
+        "runAsGroup": { "type": "integer", "minimum": 0 },
+        "privileged": { "type": "boolean" },
+        "capabilities": {
+          "type": "object",
+          "properties": {
+            "add": { "type": "array", "items": { "type": "string" } },
+            "drop": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "seccompProfile": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["RuntimeDefault", "Localhost", "Unconfined"]
+            },
+            "localhostProfile": { "type": "string" }
+          }
+        }
+      }
+    }
+
+  }
+}

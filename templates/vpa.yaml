@@ -1,0 +1,37 @@
+{{- if .Values.vpa.enabled }}
+{{- range $jobname, $job := .Values.jobs }}
+{{- $resources := $job.resources | default $.Values.defaultResources }}
+---
+# VerticalPodAutoscaler for job: {{ $jobname }}
+# Requires the VPA controller (https://github.com/kubernetes/autoscaler/tree/master/vertical-pod-autoscaler)
+# to be installed in the cluster. This chart does NOT install the VPA CRDs.
+#
+# IMPORTANT: keep updateMode "Off" or "Initial" for CronJobs.
+# "Auto" or "Recreate" will evict running job pods to apply new resource
+# settings, which can cause job failures or duplicate work.
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: {{ include "cronjobs.releaseName" $ }}-{{ $jobname }}
+  labels:
+    {{- include "cronjobs.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $jobname }}
+spec:
+  targetRef:
+    apiVersion: batch/v1
+    kind: CronJob
+    name: {{ include "cronjobs.releaseName" $ }}-{{ $jobname }}
+  updatePolicy:
+    updateMode: {{ $.Values.vpa.updateMode | quote }}
+  resourcePolicy:
+    containerPolicies:
+      - containerName: {{ $jobname }}
+        minAllowed:
+          cpu: 10m
+          memory: 32Mi
+        maxAllowed:
+          cpu: {{ dig "limits" "cpu" "2" $resources }}
+          memory: {{ dig "limits" "memory" "2Gi" $resources }}
+        controlledResources: ["cpu", "memory"]
+{{- end }}
+{{- end }}

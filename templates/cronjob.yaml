@@ -1,4 +1,20 @@
 {{- range $jobname, $job := .Values.jobs }}
+{{- /*
+  ── Resolve effective settings ──────────────────────────────────────────────
+  Per-job values override chart-level defaults entirely (no deep merge).
+  Backward compat: job.securityContext (old key) is accepted as a fallback for
+  podSecurityContext so existing values files continue to work.
+*/}}
+{{- $podSecCtx       := $job.podSecurityContext | default $job.securityContext | default $.Values.defaultPodSecurityContext }}
+{{- $containerSecCtx := $job.containerSecurityContext | default $.Values.defaultContainerSecurityContext }}
+{{- $resources       := $job.resources | default $.Values.defaultResources }}
+{{- $termGrace       := $job.terminationGracePeriodSeconds | default $.Values.terminationGracePeriodSeconds }}
+{{- $readOnlyFS      := default false (index $containerSecCtx "readOnlyRootFilesystem") }}
+{{- $addTmpDir       := and $.Values.mountTmpDir $readOnlyFS }}
+{{- $saName          := printf "%s-%s" $.Release.Name $jobname }}
+{{- if and (hasKey $job "serviceAccount") ($job.serviceAccount.name) }}
+  {{- $saName = $job.serviceAccount.name }}
+{{- end }}
 ---
 apiVersion: batch/v1
 kind: CronJob
@@ -6,83 +22,137 @@ metadata:
   name: {{ include "cronjobs.releaseName" $ }}-{{ $jobname }}
   labels:
     {{- include "cronjobs.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $jobname }}
 spec:
+  schedule: {{ $job.schedule | quote }}
   concurrencyPolicy: {{ $job.concurrencyPolicy }}
   failedJobsHistoryLimit: {{ $job.failedJobsHistoryLimit }}
+  successfulJobsHistoryLimit: {{ $job.successfulJobsHistoryLimit }}
   jobTemplate:
     spec:
       template:
         metadata:
           labels:
+            {{- include "cronjobs.selectorLabels" $ | nindent 12 }}
+            app.kubernetes.io/component: {{ $jobname }}
+            {{- /* Legacy labels kept for backward compatibility */}}
             app: {{ include "cronjobs.releaseName" $ }}
             cron: {{ $jobname }}
+          {{- with $job.podAnnotations }}
+          annotations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
         spec:
-        {{- if hasKey $job "imagePullSecrets" }}
+          automountServiceAccountToken: {{ default false (dig "serviceAccount" "automountServiceAccountToken" false $job) }}
+          serviceAccountName: {{ $saName }}
+          {{- if hasKey $job "imagePullSecrets" }}
           imagePullSecrets:
-          - name: {{ $.Release.Name }}-docker
-        {{- end }}
-        {{- if and (hasKey $job "serviceAccount") (hasKey $job.serviceAccount "name") }}
-          serviceAccountName: {{ $job.serviceAccount.name }}
-        {{- else }}
-          serviceAccountName: {{ $.Release.Name}}-{{ $jobname }}
-        {{- end }}
-        {{- if hasKey $job "securityContext" }}
-          {{- if $job.securityContext.runAsUser }}
+            - name: {{ $.Release.Name }}-docker
+          {{- end }}
+          terminationGracePeriodSeconds: {{ $termGrace }}
           securityContext:
-            runAsUser: {{ $job.securityContext.runAsUser }}
-            {{- if $job.securityContext.runAsGroup }}
-            runAsGroup: {{ $job.securityContext.runAsGroup }}
-            {{- end }}
-            {{- if $job.securityContext.fsGroup }}
-            fsGroup: {{ $job.securityContext.fsGroup }}
+            {{- toYaml $podSecCtx | nindent 12 }}
+          {{- /* ── Topology spread ──────────────────────────────────────── */}}
+          {{- if $.Values.topologySpread.enabled }}
+          topologySpreadConstraints:
+            {{- range $.Values.topologySpread.constraints }}
+            - maxSkew: {{ .maxSkew }}
+              topologyKey: {{ .topologyKey }}
+              whenUnsatisfiable: {{ .whenUnsatisfiable }}
+              labelSelector:
+                matchLabels:
+                  {{- include "cronjobs.selectorLabels" $ | nindent 18 }}
+                  app.kubernetes.io/component: {{ $jobname }}
             {{- end }}
           {{- end }}
-        {{- end }}
-          containers:
-          - image: {{ $job.image.repository }}:{{ $job.image.tag }}
-            imagePullPolicy: {{ $job.image.imagePullPolicy }}
-            name: {{ $jobname }}
-            {{- with $job.env }}
-            env:
-{{ toYaml . | indent 12 }}
-            {{- end }}
-            {{- with $job.envFrom }}
-            envFrom:
-{{ toYaml . | indent 12 }}
-            {{- end }}
-            {{- with $job.command }}
-            command:
-{{ toYaml . | indent 12 }}
-            {{- end }}
-            {{- with $job.args }}
-            args:
-{{ toYaml . | indent 12 }}
-              {{- end }}
-            {{- with $job.resources }}
-            resources:
-{{ toYaml . | indent 14 }}
-            {{- end }}
-            {{- with $job.volumeMounts }}
-            volumeMounts:
-{{ toYaml . | indent 12 }}
-            {{- end }}
+          {{- /* ── Affinity ─────────────────────────────────────────────── */}}
+          {{- if $job.affinity }}
+          affinity:
+            {{- toYaml $job.affinity | nindent 12 }}
+          {{- else if $.Values.podAntiAffinity.enabled }}
+          affinity:
+            podAntiAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+                - weight: {{ $.Values.podAntiAffinity.weight }}
+                  podAffinityTerm:
+                    topologyKey: kubernetes.io/hostname
+                    labelSelector:
+                      matchLabels:
+                        {{- include "cronjobs.selectorLabels" $ | nindent 24 }}
+                        app.kubernetes.io/component: {{ $jobname }}
+          {{- end }}
           {{- with $job.nodeSelector }}
           nodeSelector:
-{{ toYaml . | indent 12 }}
-          {{- end }}
-          {{- with $job.affinity }}
-          affinity:
-{{ toYaml . | indent 12 }}
+            {{- toYaml . | nindent 12 }}
           {{- end }}
           {{- with $job.tolerations }}
           tolerations:
-{{ toYaml . | indent 12 }}
+            {{- toYaml . | nindent 12 }}
           {{- end }}
           restartPolicy: {{ $job.restartPolicy }}
-          {{- with $job.volumes }}
+          {{- /* ── Volumes ──────────────────────────────────────────────── */}}
+          {{- if or $addTmpDir $job.volumes }}
           volumes:
-{{ toYaml . | indent 12 }}
+            {{- if $addTmpDir }}
+            - name: tmp
+              emptyDir: {}
+            {{- end }}
+            {{- with $job.volumes }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           {{- end }}
-  schedule: {{ $job.schedule | quote }}
-  successfulJobsHistoryLimit: {{ $job.successfulJobsHistoryLimit }}
+          containers:
+            - name: {{ $jobname }}
+              image: "{{ $job.image.repository }}:{{ $job.image.tag }}"
+              imagePullPolicy: {{ $job.image.imagePullPolicy }}
+              securityContext:
+                {{- toYaml $containerSecCtx | nindent 16 }}
+              resources:
+                {{- toYaml $resources | nindent 16 }}
+              {{- with $job.command }}
+              command:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              {{- with $job.args }}
+              args:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              {{- with $job.env }}
+              env:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              {{- with $job.envFrom }}
+              envFrom:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              {{- /* ── Probes ───────────────────────────────────────────── */}}
+              {{- with $job.startupProbe }}
+              startupProbe:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              {{- with $job.livenessProbe }}
+              livenessProbe:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              {{- /* ── Volume mounts ────────────────────────────────────── */}}
+              {{- if or $addTmpDir $job.volumeMounts }}
+              volumeMounts:
+                {{- if $addTmpDir }}
+                - name: tmp
+                  mountPath: /tmp
+                {{- end }}
+                {{- with $job.volumeMounts }}
+                {{- toYaml . | nindent 16 }}
+                {{- end }}
+              {{- end }}
+              {{- /* ── Lifecycle ────────────────────────────────────────── */}}
+              {{- if $job.lifecycle }}
+              lifecycle:
+                {{- toYaml $job.lifecycle | nindent 16 }}
+              {{- else if $.Values.preStopSleep.enabled }}
+              lifecycle:
+                preStop:
+                  exec:
+                    command: ["/bin/sh", "-c", "sleep {{ $.Values.preStopSleep.seconds }}"]
+              {{- end }}
 {{- end }}
