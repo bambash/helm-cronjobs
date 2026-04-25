@@ -66,7 +66,7 @@ jobs:
         run: |
           kubeconform \
             -strict \
-            -kubernetes-version 1.29.0 \
+            -kubernetes-version 1.32.0 \
             -schema-location default \
             -schema-location \
               'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
@@ -110,9 +110,10 @@ jobs:
         uses: helm/kind-action@0025e354d8a8a9b037b88edbc8ae40f1d5de3c67
         with:
           cluster_name: chart-testing
-          # Pin kind + node image for reproducibility
-          version: "v0.22.0"
-          node_image: "kindest/node:v1.29.2"
+          # kind v0.25.0 is the first release with first-class k8s 1.32 support.
+          # Update node_image SHA when bumping: https://github.com/kubernetes-sigs/kind/releases
+          version: "v0.25.0"
+          node_image: "kindest/node:v1.32.2@sha256:f226945f46b22e4d8d938249ce38e9571fef72b36f93e88e30da54ccfdab2148"
 
       - name: Install chart into kind
         run: |
