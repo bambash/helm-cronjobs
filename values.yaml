@@ -97,3 +97,51 @@ jobs:
               values:
               - e2e-az1
               - e2e-az2
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test configuration – used by 'helm test <release>'
+# ─────────────────────────────────────────────────────────────────────────────
+tests:
+  enabled: true
+
+  # Shared image used by all test pods; requires kubectl to be present.
+  image:
+    repository: bitnami/kubectl
+    tag: "1.29"
+    pullPolicy: IfNotPresent
+
+  # Resource constraints applied to every test pod.
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+  # Connectivity test – verifies all CronJob resources exist in the cluster.
+  connectivity:
+    enabled: true
+    # Seconds before the test pod is force-killed.
+    timeoutSeconds: 60
+
+  # Configuration test – inspects the live CronJob spec to assert schedule,
+  # image, and environment variables match the deployed values.
+  configuration:
+    enabled: true
+    # Key from .Values.jobs whose spec will be inspected.
+    jobName: hello-env-var
+    # Environment variables expected to be present in the container spec.
+    expectedEnvVars:
+      - name: ECHO_VAR
+        value: "busybox"
+    timeoutSeconds: 60
+
+  # Smoke test – triggers a one-off Job from the chosen CronJob and asserts
+  # it exits 0 within timeoutSeconds.
+  smoke:
+    enabled: true
+    # Key from .Values.jobs to trigger.  Choose a job with no imagePullSecrets
+    # or one whose image is always publicly accessible.
+    jobName: hello-ubuntu
+    timeoutSeconds: 120

@@ -1,0 +1,45 @@
+{{- if and .Values.tests.enabled .Values.tests.connectivity.enabled }}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "cronjobs.releaseName" . }}-test-connectivity
+  labels:
+    {{- include "cronjobs.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  serviceAccountName: {{ include "cronjobs.releaseName" . }}-test
+  activeDeadlineSeconds: {{ .Values.tests.connectivity.timeoutSeconds }}
+  restartPolicy: Never
+  containers:
+    - name: connectivity
+      image: "{{ .Values.tests.image.repository }}:{{ .Values.tests.image.tag }}"
+      imagePullPolicy: {{ .Values.tests.image.pullPolicy }}
+      resources:
+        {{- toYaml .Values.tests.resources | nindent 8 }}
+      command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+          NS="{{ .Release.Namespace }}"
+          echo "=== Connectivity Test: verifying CronJob resources exist in ${NS} ==="
+          FAILED=0
+          {{- range $jobname, $job := .Values.jobs }}
+          CJ="{{ $.Release.Name }}-{{ $jobname }}"
+          if kubectl get cronjob "${CJ}" -n "${NS}" --ignore-not-found \
+               | grep -q "${CJ}"; then
+            echo "  OK   ${CJ}"
+          else
+            echo "  FAIL ${CJ} – CronJob resource not found"
+            FAILED=1
+          fi
+          {{- end }}
+          if [ "${FAILED}" -ne 0 ]; then
+            echo "ERROR: one or more CronJob resources are missing"
+            exit 1
+          fi
+          echo "=== Connectivity test passed ({{ len .Values.jobs }} CronJob(s) verified) ==="
+{{- end }}

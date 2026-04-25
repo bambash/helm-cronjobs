@@ -1,0 +1,147 @@
+name: Chart CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+# Minimal permissions at the workflow level; jobs override as needed.
+permissions:
+  contents: read
+
+jobs:
+  # ───────────────────────────────────────────────────────────────────────────
+  # Job 1 – Lint and static manifest validation
+  # ───────────────────────────────────────────────────────────────────────────
+  lint-and-validate:
+    name: Lint & Validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        # SHA pin: actions/checkout v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+
+      - name: Cache Helm binary
+        # SHA pin: actions/cache v4.2.0
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11a772f3b5ee34
+        with:
+          path: ~/.local/share/helm
+          key: helm-${{ runner.os }}-3.14.4
+
+      - name: Set up Helm
+        # SHA pin: azure/setup-helm v4.2.1
+        # Verify: git ls-remote --tags https://github.com/Azure/setup-helm
+        uses: azure/setup-helm@5119fcb9bc5f777f04d5b57c9bfef8bd638b5834
+        with:
+          version: "3.14.4"
+
+      - name: Lint chart
+        run: helm lint . --strict --values ci/test-values.yaml
+
+      - name: Template chart (dry-run)
+        run: |
+          helm template ci-release . \
+            --values ci/test-values.yaml \
+            --debug \
+            > /tmp/manifests.yaml
+          echo "Template output size: $(wc -l < /tmp/manifests.yaml) lines"
+
+      - name: Install kubeconform
+        env:
+          KUBECONFORM_VERSION: "v0.6.4"
+        run: |
+          curl -sSfL \
+            "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" \
+            | tar xz -C /tmp kubeconform
+          sudo mv /tmp/kubeconform /usr/local/bin/kubeconform
+          kubeconform -v
+
+      - name: Validate manifests with kubeconform
+        run: |
+          kubeconform \
+            -strict \
+            -kubernetes-version 1.29.0 \
+            -schema-location default \
+            -schema-location \
+              'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+            -summary \
+            /tmp/manifests.yaml
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Job 2 – Integration test in a live kind cluster
+  # ───────────────────────────────────────────────────────────────────────────
+  integration-test:
+    name: Integration Test (kind)
+    runs-on: ubuntu-latest
+    needs: lint-and-validate
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        # SHA pin: actions/checkout v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+
+      - name: Cache Helm binary
+        # SHA pin: actions/cache v4.2.0
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11a772f3b5ee34
+        with:
+          path: ~/.local/share/helm
+          key: helm-${{ runner.os }}-3.14.4
+
+      - name: Set up Helm
+        # SHA pin: azure/setup-helm v4.2.1
+        # Verify: git ls-remote --tags https://github.com/Azure/setup-helm
+        uses: azure/setup-helm@5119fcb9bc5f777f04d5b57c9bfef8bd638b5834
+        with:
+          version: "3.14.4"
+
+      - name: Create kind cluster
+        # SHA pin: helm/kind-action v1.10.0
+        # Verify: git ls-remote --tags https://github.com/helm/kind-action
+        uses: helm/kind-action@0025e354d8a8a9b037b88edbc8ae40f1d5de3c67
+        with:
+          cluster_name: chart-testing
+          # Pin kind + node image for reproducibility
+          version: "v0.22.0"
+          node_image: "kindest/node:v1.29.2"
+
+      - name: Install chart into kind
+        run: |
+          helm install ci-release . \
+            --namespace default \
+            --values ci/test-values.yaml \
+            --wait \
+            --timeout 3m
+
+      - name: Show deployed CronJobs
+        run: kubectl get cronjobs -n default -o wide
+
+      - name: Run Helm tests
+        run: |
+          helm test ci-release \
+            --namespace default \
+            --timeout 5m \
+            --logs
+
+      - name: Dump test pod logs on failure
+        if: failure()
+        run: |
+          for pod in ci-release-test-connectivity \
+                     ci-release-test-configuration \
+                     ci-release-test-smoke; do
+            echo "=== Logs: ${pod} ==="
+            kubectl logs "${pod}" -n default 2>/dev/null || echo "(no logs)"
+          done
+
+      - name: Uninstall chart
+        if: always()
+        run: helm uninstall ci-release --namespace default --ignore-not-found

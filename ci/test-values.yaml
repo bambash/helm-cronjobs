@@ -1,0 +1,73 @@
+# CI-specific values used by the chart-ci workflow.
+#
+# Overrides the default jobs to:
+#   • Remove jobs that carry imagePullSecrets with example credentials so Docker
+#     Hub auth errors cannot block the test run.
+#   • Pin image tags to avoid unexpected breakage from `:latest` updates.
+#   • Drop the nodeSelector / tolerations / affinity that won't match a kind node.
+#
+# Helm merges this file on top of values.yaml.  Setting a job key to null (~)
+# removes it from the merged map (Helm 3 behaviour).
+
+jobs:
+  hello-world: ~   # remove – uses imagePullSecrets with dummy docker.io creds
+
+  hello-ubuntu:
+    image:
+      repository: ubuntu
+      tag: "22.04"
+      imagePullPolicy: IfNotPresent
+    schedule: "*/5 * * * *"
+    command: ["/bin/bash"]
+    args:
+      - "-c"
+      - "echo $(date) - hello from ubuntu ci"
+    resources:
+      limits:
+        cpu: 50m
+        memory: 128Mi
+      requests:
+        cpu: 50m
+        memory: 128Mi
+    failedJobsHistoryLimit: 1
+    successfulJobsHistoryLimit: 3
+    concurrencyPolicy: Forbid
+    restartPolicy: OnFailure
+    # No imagePullSecrets – ubuntu is public on Docker Hub
+
+  hello-env-var:
+    image:
+      repository: busybox
+      tag: "1.36"
+      imagePullPolicy: IfNotPresent
+    schedule: "* * * * *"
+    command: ["/bin/sh"]
+    args:
+      - "-c"
+      - "echo $(date) - ECHO_VAR=${ECHO_VAR}"
+    env:
+      - name: ECHO_VAR
+        value: "busybox"
+    # envFrom removed – the referenced Secret/ConfigMap don't exist in kind
+    resources:
+      limits:
+        cpu: 50m
+        memory: 64Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
+    failedJobsHistoryLimit: 1
+    successfulJobsHistoryLimit: 3
+    concurrencyPolicy: Forbid
+    restartPolicy: OnFailure
+    # No nodeSelector/tolerations/affinity – kind nodes have no custom labels
+
+tests:
+  configuration:
+    jobName: hello-env-var
+    expectedEnvVars:
+      - name: ECHO_VAR
+        value: "busybox"
+  smoke:
+    jobName: hello-ubuntu
+    timeoutSeconds: 120

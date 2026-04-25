@@ -1,0 +1,46 @@
+Thank you for installing {{ .Chart.Name }} v{{ .Chart.Version }}.
+
+Release:   {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+
+CronJobs deployed:
+{{- range $jobname, $job := .Values.jobs }}
+  • {{ $.Release.Name }}-{{ $jobname }}  (schedule: {{ $job.schedule }})
+{{- end }}
+
+──────────────────────────────────────────────
+ Running Helm Tests
+──────────────────────────────────────────────
+
+Run the full test suite:
+
+  helm test {{ .Release.Name }} --namespace {{ .Release.Namespace }}
+
+Stream logs while tests run:
+
+  helm test {{ .Release.Name }} --namespace {{ .Release.Namespace }} --logs
+
+Read individual test pod logs after a run:
+{{- if .Values.tests.connectivity.enabled }}
+  kubectl logs {{ .Release.Name }}-test-connectivity -n {{ .Release.Namespace }}
+{{- end }}
+{{- if .Values.tests.configuration.enabled }}
+  kubectl logs {{ .Release.Name }}-test-configuration -n {{ .Release.Namespace }}
+{{- end }}
+{{- if .Values.tests.smoke.enabled }}
+  kubectl logs {{ .Release.Name }}-test-smoke -n {{ .Release.Namespace }}
+{{- end }}
+
+──────────────────────────────────────────────
+ Manually Triggering a CronJob
+──────────────────────────────────────────────
+
+  kubectl create job \
+    --from=cronjob/{{ .Release.Name }}-<job-name> \
+    manual-{{ .Release.Name }}-<job-name> \
+    --namespace {{ .Release.Namespace }}
+
+List all managed CronJobs:
+
+  kubectl get cronjobs -n {{ .Release.Namespace }} \
+    -l app.kubernetes.io/managed-by=Helm

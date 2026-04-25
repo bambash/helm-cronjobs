@@ -1,0 +1,76 @@
+{{- if and .Values.tests.enabled .Values.tests.configuration.enabled }}
+{{- $jobName := .Values.tests.configuration.jobName }}
+{{- $job := index .Values.jobs $jobName }}
+{{- if $job }}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "cronjobs.releaseName" . }}-test-configuration
+  labels:
+    {{- include "cronjobs.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  serviceAccountName: {{ include "cronjobs.releaseName" . }}-test
+  activeDeadlineSeconds: {{ .Values.tests.configuration.timeoutSeconds }}
+  restartPolicy: Never
+  containers:
+    - name: configuration
+      image: "{{ .Values.tests.image.repository }}:{{ .Values.tests.image.tag }}"
+      imagePullPolicy: {{ .Values.tests.image.pullPolicy }}
+      resources:
+        {{- toYaml .Values.tests.resources | nindent 8 }}
+      command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+          NS="{{ .Release.Namespace }}"
+          CJ="{{ include "cronjobs.releaseName" . }}-{{ $jobName }}"
+          echo "=== Configuration Test: inspecting CronJob ${CJ} ==="
+
+          # Fetch the live CronJob spec
+          if ! kubectl get cronjob "${CJ}" -n "${NS}" > /dev/null 2>&1; then
+            echo "ERROR: CronJob ${CJ} not found"
+            exit 1
+          fi
+
+          # Verify schedule
+          EXPECTED_SCHEDULE="{{ $job.schedule }}"
+          ACTUAL_SCHEDULE=$(kubectl get cronjob "${CJ}" -n "${NS}" \
+            -o jsonpath='{.spec.schedule}')
+          if [ "${ACTUAL_SCHEDULE}" = "${EXPECTED_SCHEDULE}" ]; then
+            echo "  OK   schedule = ${ACTUAL_SCHEDULE}"
+          else
+            echo "  FAIL schedule: expected '${EXPECTED_SCHEDULE}', got '${ACTUAL_SCHEDULE}'"
+            exit 1
+          fi
+
+          # Verify container image
+          EXPECTED_IMAGE="{{ $job.image.repository }}:{{ $job.image.tag }}"
+          ACTUAL_IMAGE=$(kubectl get cronjob "${CJ}" -n "${NS}" \
+            -o jsonpath='{.spec.jobTemplate.spec.template.spec.containers[0].image}')
+          if [ "${ACTUAL_IMAGE}" = "${EXPECTED_IMAGE}" ]; then
+            echo "  OK   image = ${ACTUAL_IMAGE}"
+          else
+            echo "  FAIL image: expected '${EXPECTED_IMAGE}', got '${ACTUAL_IMAGE}'"
+            exit 1
+          fi
+
+          {{- range .Values.tests.configuration.expectedEnvVars }}
+          # Verify env var: {{ .name }}
+          ACTUAL_VAL=$(kubectl get cronjob "${CJ}" -n "${NS}" \
+            -o jsonpath='{.spec.jobTemplate.spec.template.spec.containers[0].env[?(@.name=="{{ .name }}")].value}')
+          if [ "${ACTUAL_VAL}" = "{{ .value }}" ]; then
+            echo "  OK   env {{ .name }} = ${ACTUAL_VAL}"
+          else
+            echo "  FAIL env {{ .name }}: expected '{{ .value }}', got '${ACTUAL_VAL}'"
+            exit 1
+          fi
+          {{- end }}
+
+          echo "=== Configuration test passed ==="
+{{- end }}
+{{- end }}

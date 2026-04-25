@@ -1,0 +1,150 @@
+name: Chart Release
+
+# Triggers on any semver tag push (e.g. v1.2.3, v1.2.3-rc.1).
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+# Minimal permissions at workflow level; individual jobs override as needed.
+permissions:
+  contents: read
+
+jobs:
+  # ───────────────────────────────────────────────────────────────────────────
+  # Job 1 – Validate that the tag is well-formed SemVer 2.0 and matches
+  #          the version field in Chart.yaml.
+  # ───────────────────────────────────────────────────────────────────────────
+  validate-tag:
+    name: Validate Tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.parse.outputs.version }}
+
+    steps:
+      - name: Parse and validate SemVer tag
+        id: parse
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          echo "Git tag: ${TAG}"
+
+          # Full SemVer 2.0 regex (https://semver.org/#is-there-a-suggested-regexp-for-semver)
+          SEMVER_REGEX='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$'
+          if ! echo "${TAG}" | grep -qE "${SEMVER_REGEX}"; then
+            echo "ERROR: '${TAG}' is not a valid SemVer 2.0 tag."
+            echo "Expected format: v<major>.<minor>.<patch>[-prerelease][+build]"
+            exit 1
+          fi
+
+          VERSION="${TAG#v}"
+          echo "Parsed version: ${VERSION}"
+          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+
+      - name: Checkout
+        # SHA pin: actions/checkout v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Assert tag matches Chart.yaml version
+        run: |
+          CHART_VERSION=$(grep '^version:' Chart.yaml | awk '{print $2}' | tr -d '"' | tr -d "'")
+          TAG_VERSION="${{ steps.parse.outputs.version }}"
+
+          echo "Chart.yaml version : ${CHART_VERSION}"
+          echo "Tag version        : ${TAG_VERSION}"
+
+          if [ "${CHART_VERSION}" != "${TAG_VERSION}" ]; then
+            echo ""
+            echo "ERROR: Version mismatch!"
+            echo "  Chart.yaml says '${CHART_VERSION}' but the tag is 'v${TAG_VERSION}'."
+            echo "  Bump 'version:' in Chart.yaml to '${TAG_VERSION}' before tagging."
+            exit 1
+          fi
+          echo "Version check passed."
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Job 2 – Package the chart and publish it as a GitHub Release + update the
+  #          Helm repository index on the gh-pages branch.
+  # ───────────────────────────────────────────────────────────────────────────
+  release:
+    name: Package & Release
+    runs-on: ubuntu-latest
+    needs: validate-tag
+    permissions:
+      # contents: write is required to create GitHub Releases, upload release
+      # assets, and push to the gh-pages branch via chart-releaser.
+      contents: write
+
+    steps:
+      - name: Checkout (full history for git log fallback)
+        # SHA pin: actions/checkout v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Helm
+        # SHA pin: azure/setup-helm v4.2.1
+        # Verify SHA: git ls-remote --tags https://github.com/Azure/setup-helm
+        uses: azure/setup-helm@5119fcb9bc5f777f04d5b57c9bfef8bd638b5834
+        with:
+          version: "3.14.4"
+
+      - name: Configure Git identity (required by chart-releaser)
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Build release notes
+        id: relnotes
+        run: |
+          VERSION="${{ needs.validate-tag.outputs.version }}"
+          NOTES_FILE="/tmp/release-notes.md"
+
+          BODY=""
+          if [ -f CHANGELOG.md ]; then
+            # Extract lines between the heading for this version and the next one.
+            # Handles headings like "## [v2.1.0]", "## v2.1.0", or "## 2.1.0".
+            ESCAPED="${VERSION//./\\.}"
+            BODY=$(awk \
+              "/^## \[?[Vv]?${ESCAPED}\]?/{found=1; next} found && /^## /{exit} found{print}" \
+              CHANGELOG.md | sed '/^[[:space:]]*$/d' | head -100)
+          fi
+
+          # Fallback: one-liners from git log since the previous tag.
+          if [ -z "${BODY}" ]; then
+            echo "No CHANGELOG entry for ${VERSION} – falling back to git log."
+            PREV_TAG=$(git tag --sort=-version:refname \
+              | grep -v "^${GITHUB_REF_NAME}$" | head -n1 || true)
+            if [ -n "${PREV_TAG}" ]; then
+              RANGE="${PREV_TAG}..HEAD"
+            else
+              RANGE="HEAD"
+            fi
+            BODY=$(printf '## Changes\n\n%s' \
+              "$(git log "${RANGE}" --oneline --no-decorate)")
+          fi
+
+          printf '%s\n' "${BODY}" > "${NOTES_FILE}"
+          echo "notes_file=${NOTES_FILE}" >> "${GITHUB_OUTPUT}"
+          echo "--- Release notes preview ---"
+          cat "${NOTES_FILE}"
+
+      # chart-releaser-action expects charts in <charts_dir>/<chart-name>/
+      # subdirectories.  Because this repo IS the chart root, we create a
+      # temporary staging layout before running the action.
+      - name: Stage chart directory for chart-releaser
+        run: |
+          mkdir -p /tmp/charts/helm-cronjobs
+          rsync -a --exclude '.git' ./ /tmp/charts/helm-cronjobs/
+
+      - name: Publish chart with chart-releaser
+        # SHA pin: helm/chart-releaser-action v1.6.0
+        uses: helm/chart-releaser-action@a917fd15b20e8b64b94d9158ad54cd6345d932d0
+        with:
+          charts_dir: /tmp/charts
+        env:
+          CR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Populate the GitHub Release body from our changelog / git-log output.
+          CR_RELEASE_NOTES_FILE: ${{ steps.relnotes.outputs.notes_file }}
