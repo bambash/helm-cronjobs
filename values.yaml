@@ -282,8 +282,8 @@ tests:
 
   # Shared image used by all test pods; requires kubectl.
   image:
-    repository: bitnami/kubectl
-    tag: "1.32"
+    repository: alpine/k8s
+    tag: "1.32.3"
     pullPolicy: IfNotPresent
 
   # Resource constraints for every test pod.

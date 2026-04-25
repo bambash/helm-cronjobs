@@ -43,4 +43,4 @@ annotations:
       description: "kubeVersion constraint added (>=1.29.0-0)"
   artifacthub.io/images: |
     - name: kubectl
-      image: bitnami/kubectl:1.29
+      image: alpine/k8s:1.32.3
