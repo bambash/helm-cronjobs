@@ -80,9 +80,9 @@ jobs:
         value: "busybox"
     envFrom:
       - secretRef:
-          name: secret_data
+          name: secret-data
       - configMapRef:
-          name: config_data
+          name: config-data
     schedule: "* * * * *"
     command: ["/bin/sh"]
     args:
