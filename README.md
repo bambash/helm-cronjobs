@@ -15,16 +15,6 @@ helm repo add helm-cronjobs https://<owner>.github.io/helm-cronjobs/
 helm repo update
 helm install my-release helm-cronjobs/helm-cronjobs
 ```
-
-To apply the Pod Security Standard to your namespace before installing:
-
-```bash
-kubectl label namespace <ns> \
-  pod-security.kubernetes.io/enforce=restricted \
-  pod-security.kubernetes.io/warn=restricted \
-  pod-security.kubernetes.io/audit=restricted
-```
-
 ---
 
 ## How to use as a starter chart
