@@ -17,15 +17,6 @@ helm install my-release helm-cronjobs/helm-cronjobs
 ```
 ---
 
-## How to use as a starter chart
-
-1. Find your Helm data directory: `helm env` → look for `HELM_DATA_HOME`.
-2. `cd $HELM_DATA_HOME && mkdir -p starters && cd starters`
-3. Clone this repo.
-4. Scaffold a new chart: `helm create -p helm-cronjobs your_chart_name`
-
----
-
 ## Configuration
 
 ### Job definition overview
